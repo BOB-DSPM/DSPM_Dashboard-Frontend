@@ -1,21 +1,19 @@
 # DSPM Dashboard
 
-
 ---
 
 ## Project Structure
 
-
 dspm_dashboard/
 ├── src/
-│   ├── assets/
+│   ├── assets/                  
 │   │   └── # 프로젝트에서 사용하는 이미지, 아이콘 등 정적 자원
-│   ├── components/
+│   ├── components/              
 │   │   ├── navigation/
-│   │   │   └── Sidebar.js
+│   │   │   └── Sidebar.js       
 │   │   │       # 좌측 사이드바 탭 UI를 담당, activeTab prop으로 페이지 전환 제어
 │   │   ├── cards/
-│   │   │   └── KPI.js
+│   │   │   └── KPI.js           
 │   │   │       # KPI 카드 컴포넌트, title, value, color, icon prop으로 재사용 가능
 │   │   ├── charts/
 │   │   │   ├── PieChartComponent.js
@@ -25,38 +23,39 @@ dspm_dashboard/
 │   │   └── inventory/
 │   │       └── InventoryList.js
 │   │           # Inventory 탭 리스트 UI, inventoryData와 loading 상태를 prop으로 받음
-│   ├── data/
+│   ├── data/                    
 │   │   ├── complianceScores.js
 │   │   │   # 정책/컴플라이언스 점수 mock 데이터
 │   │   ├── issuesBySeverity.js
 │   │   │   # 심각도별 이슈 mock 데이터
 │   │   ├── dataClassification.js
 │   │   │   # 데이터 타입별 분류 mock 데이터
-│   │   └── index.js
+│   │   └── index.js             
 │   │       # 위 3개의 데이터를 한 번에 export
 │   ├── hooks/
-│   │   └── useInventory.js
+│   │   └── useInventory.js      
 │   │       # Inventory API fetch 커스텀 훅, activeTab에 따라 fetch 수행
-│   ├── pages/
-│   │   ├── Overview.js
+│   ├── pages/                   
+│   │   ├── Overview.js          
 │   │   │   # Overview 탭 페이지, KPI 카드 + Pie차트 + Issues by Severity + Compliance 등 조합
-│   │   ├── Inventory.js
+│   │   ├── Inventory.js         
 │   │   │   # Inventory 탭 페이지, useInventory 훅과 InventoryList 컴포넌트 사용
-│   │   ├── Alerts.js
+│   │   ├── Alerts.js            
 │   │   │   # Alerts 탭 페이지, 최근 보안 알림 목록 UI
-│   │   ├── Policies.js
+│   │   ├── Policies.js          
 │   │   │   # Policies 탭 페이지, 컴플라이언스 점수 카드 UI
-│   │   └── Lineage.js
+│   │   └── Lineage.js           
 │   │       # Lineage 탭 페이지, 데이터 흐름 시각화 UI
-│   ├── App.js
+│   ├── App.js                   
 │   │   # 최상위 Dashboard 페이지, Sidebar와 페이지 렌더링 로직 포함
-│   └── index.js
+│   └── index.js                 
 │       # React 엔트리 포인트, ReactDOM.render 호출
-├── package.json
+├── package.json                 
 │   # 프로젝트 의존성 및 실행 스크립트
-└── tailwind.config.js
-│   
-└── postcss.config.js
+├── tailwind.config.js           
+│   # TailwindCSS 설정
+└── postcss.config.js            
+    # PostCSS 설정
 
 ---
 
