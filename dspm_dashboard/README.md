@@ -1,7 +1,5 @@
 # DSPM Dashboard
 
-이 프로젝트는 보안 지표, 인벤토리, 알림, 정책, 데이터 흐름(Lineage)을 시각화하는 **React 기반 대시보드**입니다.  
-차트는 **Recharts**, 아이콘은 **Lucide React**를 사용했습니다.
 
 ---
 
