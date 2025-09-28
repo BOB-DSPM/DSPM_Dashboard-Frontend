@@ -3,7 +3,7 @@
 ---
 
 ## Project Structure
-
+```
 dspm_dashboard/
 ├── src/
 │   ├── assets/                  
@@ -56,7 +56,7 @@ dspm_dashboard/
 │   # TailwindCSS 설정
 └── postcss.config.js            
     # PostCSS 설정
-
+```
 ---
 
 ## 기능
