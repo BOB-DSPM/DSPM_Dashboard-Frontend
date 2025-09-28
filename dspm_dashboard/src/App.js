@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { AlertTriangle, Shield, Database, GitBranch, Search, Filter, Bell, FileText, Globe, Users, Server, Activity } from 'lucide-react';
 
@@ -24,13 +24,7 @@ const Dashboard = () => {
     { name: 'SOC 2', score: 64, color: '#ef4444' }
   ];
 
-  const inventoryData = [
-    { name: 'AWS DocumentDB', count: 3, type: 'database' },
-    { name: 'AWS DynamoDB', count: 108, type: 'database' },
-    { name: 'AWS EC2', count: 1543, type: 'compute' },
-    { name: 'AWS Lambda', count: 114, type: 'serverless' },
-    { name: 'AWS RDS Aurora', count: 86, type: 'database' }
-  ];
+
 
   const alertsData = [
     { date: '2024-09-25', opened: 45, resolved: 38 },
@@ -53,6 +47,28 @@ const Dashboard = () => {
     { id: 'policies', name: 'Policies', icon: Shield },
     { id: 'lineage', name: 'Lineage', icon: GitBranch }
   ];
+
+  const [inventoryData, setInventoryData] = useState([]);
+  const [loadingInventory, setLoadingInventory] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'inventory') {
+      const fetchInventory = async () => {
+        setLoadingInventory(true);
+        try {
+          const response = await fetch('http://localhost:3001/inventory');
+          const data = await response.json();
+          setInventoryData(data); // API에서 바로 배열 형태로 받는다고 가정
+        } catch (error) {
+          console.error('Error fetching inventory data:', error);
+        } finally {
+          setLoadingInventory(false);
+        }
+      };
+      fetchInventory();
+    }
+  }, [activeTab]);
+
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -200,23 +216,28 @@ const Dashboard = () => {
 
   const renderInventory = () => (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg p-6 shadow-sm border">
-        <h3 className="text-lg font-semibold mb-4">Data Resources Inventory</h3>
-        <div className="space-y-3">
-          {inventoryData.map((item) => (
-            <div key={item.name} className="flex items-center justify-between p-3 border rounded-lg">
-              <div className="flex items-center space-x-3">
-                <Database className="w-5 h-5 text-gray-500" />
-                <span className="font-medium">{item.name}</span>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">{item.type}</span>
+      {loadingInventory ? (
+        <div>Loading inventory...</div>
+      ) : (
+        <div className="bg-white rounded-lg p-6 shadow-sm border">
+          <h3 className="text-lg font-semibold mb-4">Data Resources Inventory</h3>
+          <div className="space-y-3">
+            {inventoryData.map((item) => (
+              <div key={item.name} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Database className="w-5 h-5 text-gray-500" />
+                  <span className="font-medium">{item.name}</span>
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">{item.type}</span>
+                </div>
+                <span className="font-semibold">{item.count}</span>
               </div>
-              <span className="font-semibold">{item.count}</span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
+
 
   const renderAlerts = () => (
     <div className="space-y-6">
@@ -310,70 +331,69 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <Shield className="w-8 h-8 text-blue-600" />
-              <h1 className="text-xl font-bold text-gray-900">DSPM Dashboard</h1>
+        <div className="flex items-center justify-between h-16 px-6">
+          <div className="flex items-center space-x-3">
+            <Shield className="w-8 h-8 text-blue-600" />
+            <h1 className="text-xl font-bold text-gray-900">DSPM Dashboard</h1>
+          </div>
+          {/* 검색창 & 필터 */}
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search assets, policies, alerts..."
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search assets, policies, alerts..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <select
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={selectedFilter}
-                onChange={(e) => setSelectedFilter(e.target.value)}
-              >
-                <option value="all">All Types</option>
-                <option value="database">Database</option>
-                <option value="compute">Compute</option>
-                <option value="storage">Storage</option>
-              </select>
-            </div>
+            <select
+              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+              value={selectedFilter}
+              onChange={(e) => setSelectedFilter(e.target.value)}
+            >
+              <option value="all">All Types</option>
+              <option value="database">Database</option>
+              <option value="compute">Compute</option>
+              <option value="storage">Storage</option>
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
+      {/* Body: Sidebar + Main */}
+      <div className="flex flex-1">
+        {/* Sidebar */}
+        <div className="w-60 bg-white shadow-sm border-r">
+          <div className="flex flex-col py-4">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                  className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium text-left ${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'bg-blue-100 text-blue-600 border-r-4 border-blue-500'
+                      : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-5 h-5" />
                   <span>{tab.name}</span>
                 </button>
               );
             })}
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {renderContent()}
+        {/* Main Content */}
+        <div className="flex-1 px-6 py-8">
+          {renderContent()}
+        </div>
       </div>
     </div>
   );
