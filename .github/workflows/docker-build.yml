@@ -1,0 +1,20 @@
+name: Build and Push Dashboard Image
+
+on:
+    push:
+        branches: [ "main" ]
+        paths:
+            - 'dspm_dashboard/**'
+            - 'Dockerfile'
+            - '.github/workflows/docker-build.yml'
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout source
+              uses: actions/checkout@v4
+
+            - name: Set up docker Buildx
+              uses: docker/setup-buildx-action@v3
