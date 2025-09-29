@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Login from './pages/Login';
 import Sidebar from './components/navigation/Sidebar';
 import Overview from './pages/Overview';
 import Inventory from './pages/Inventory';
@@ -17,6 +18,7 @@ const tabs = [
 
 const App = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -29,11 +31,15 @@ const App = () => {
     }
   };
 
+  if (!isLoggedIn) {
+    return <Login onLogin={() => setIsLoggedIn(true)} />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <div className="flex flex-1">
         <Sidebar tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
-        <div className="flex-1 px-6 py-8">{renderContent()}</div>
+        <div className="flex-1 px-6 py-8 mt-12">{renderContent()}</div>
       </div>
     </div>
   );
