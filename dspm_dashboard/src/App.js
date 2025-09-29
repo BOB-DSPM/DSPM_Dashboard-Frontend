@@ -6,14 +6,16 @@ import Inventory from './pages/Inventory';
 import Alerts from './pages/Alerts';
 import Policies from './pages/Policies';
 import Lineage from './pages/Lineage';
-import { Activity, Database, Bell, Shield, GitBranch } from 'lucide-react';
+import AwsSetup from './pages/AwsSetup';
+import { Activity, Database, Bell, Shield, GitBranch,  Cloud } from 'lucide-react';
 
 const tabs = [
   { id: 'overview', name: 'Overview', icon: Activity },
   { id: 'inventory', name: 'Inventory', icon: Database },
   { id: 'alerts', name: 'Alerts', icon: Bell },
   { id: 'policies', name: 'Policies', icon: Shield },
-  { id: 'lineage', name: 'Lineage', icon: GitBranch }
+  { id: 'lineage', name: 'Lineage', icon: GitBranch },
+  { id: 'aws-setup', name: 'AWS Setup', icon: Cloud }
 ];
 
 const App = () => {
@@ -27,6 +29,7 @@ const App = () => {
       case 'alerts': return <Alerts />;
       case 'policies': return <Policies />;
       case 'lineage': return <Lineage />;
+      case 'aws-setup': return <AwsSetup />;      
       default: return <Overview securityScoreData={{ score: 79 }} />;
     }
   };
