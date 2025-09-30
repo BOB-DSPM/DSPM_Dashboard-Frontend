@@ -303,44 +303,56 @@ const Lineage = () => {
   const onNodeClick = useCallback((event, node) => {
   setSelectedNode(node.id);
 
-  // 1차 연결된 노드 찾기
-  const directlyConnectedNodes = new Set();
-  edges.forEach(edge => {
-    if (edge.source === node.id) {
-      directlyConnectedNodes.add(edge.target);
-    }
-    if (edge.target === node.id) {
-      directlyConnectedNodes.add(edge.source);
-    }
-  });
+  // 선택된 노드에서 출발하여 downstream(오른쪽)으로만 탐색
+  const findDownstreamNodes = (startNodeId, visited = new Set()) => {
+    if (visited.has(startNodeId)) return visited;
+    visited.add(startNodeId);
 
-  // 선택된 노드와 연결된 엣지 찾기
-  const connectedEdgeIds = edges
-    .filter(edge => edge.source === node.id || edge.target === node.id)
-    .map(edge => edge.id);
+    edges.forEach(edge => {
+      // source(출발) → target(도착) 방향으로만 탐색
+      if (edge.source === startNodeId && !visited.has(edge.target)) {
+        findDownstreamNodes(edge.target, visited);
+      }
+    });
 
-  // 연결된 노드들 간의 엣지도 찾기
-  const relatedEdgeIds = edges
-    .filter(edge => 
-      directlyConnectedNodes.has(edge.source) && directlyConnectedNodes.has(edge.target)
-    )
-    .map(edge => edge.id);
+    return visited;
+  };
 
-  // 모든 관련 엣지 합치기
-  const allHighlightedEdges = new Set([...connectedEdgeIds, ...relatedEdgeIds]);
+  // 선택된 노드에서 upstream(왼쪽)으로도 탐색
+  const findUpstreamNodes = (startNodeId, visited = new Set()) => {
+    if (visited.has(startNodeId)) return visited;
+    visited.add(startNodeId);
+
+    edges.forEach(edge => {
+      // target(도착) ← source(출발) 방향으로 역탐색
+      if (edge.target === startNodeId && !visited.has(edge.source)) {
+        findUpstreamNodes(edge.source, visited);
+      }
+    });
+
+    return visited;
+  };
+
+  // 양방향으로 연결된 모든 노드
+  const downstreamNodes = findDownstreamNodes(node.id);
+  const upstreamNodes = findUpstreamNodes(node.id);
+  const allConnectedNodes = new Set([...downstreamNodes, ...upstreamNodes]);
+  
+  // 연결된 노드들 사이의 모든 엣지
+  const highlightedEdges = edges.filter(edge => 
+    allConnectedNodes.has(edge.source) && allConnectedNodes.has(edge.target)
+  ).map(edge => edge.id);
 
   // 엣지 색상 변경
   setEdges((eds) =>
     eds.map((edge) => {
-      if (allHighlightedEdges.has(edge.id)) {
-        // 선택된 노드와 관련된 모든 엣지 - 강조 색상
+      if (highlightedEdges.includes(edge.id)) {
         return {
           ...edge,
           style: { ...edge.style, stroke: '#ef4444', strokeWidth: 3 },
           animated: true,
         };
       } else {
-        // 다른 엣지 - 흐리게
         return {
           ...edge,
           style: { ...edge.style, stroke: '#d1d5db', strokeWidth: 1 },
@@ -354,7 +366,6 @@ const Lineage = () => {
   setNodes((nds) =>
     nds.map((n) => {
       if (n.id === node.id) {
-        // 선택된 노드 - 테두리 강조
         return {
           ...n,
           style: {
@@ -364,8 +375,7 @@ const Lineage = () => {
             opacity: 1,
           },
         };
-      } else if (directlyConnectedNodes.has(n.id)) {
-        // 직접 연결된 노드 - 약간 강조
+      } else if (allConnectedNodes.has(n.id)) {
         return {
           ...n,
           style: {
@@ -375,7 +385,6 @@ const Lineage = () => {
           },
         };
       } else {
-        // 다른 노드 - 흐리게
         return {
           ...n,
           style: {
