@@ -19,6 +19,7 @@ const DonutChartWithLegend = ({ data }) => {
               outerRadius={80}
               dataKey="value"
             >
+        {/* 차트 안 텍스트 */}
         <text
           x="50%"
           y="50%"
@@ -39,11 +40,8 @@ const DonutChartWithLegend = ({ data }) => {
             </Pie>
           </PieChart>
         </ResponsiveContainer>
-        {/* 중앙 텍스트 */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold">{total}</span>
-          <span className="text-sm text-gray-500">Resources</span>
-        </div>
+        
+
       </div>
       
 
