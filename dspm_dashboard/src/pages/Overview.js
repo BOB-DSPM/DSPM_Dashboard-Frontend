@@ -1,6 +1,6 @@
 import React from 'react';
 import KPI from '../components/cards/KPI';
-import PieChartComponent from '../components/charts/BarChartComponent';
+import PieChartComponent from '../components/charts/PieChartComponent';
 import { Shield, Database, AlertTriangle, FileText } from 'lucide-react';
 import { issuesBySeverity, dataClassification } from '../data';
 
