@@ -7,7 +7,7 @@ import { issuesBySeverity, dataClassification } from '../data';
 const Overview = ({ securityScoreData }) => (
   <div className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <KPI title="Security Score" value={securityScoreData.score} color="blue" icon={Shield} />
+      <KPI title="Security Score" value={securityScoreData.score} color="primary" icon={Shield} />
       <KPI title="Total Assets" value="1854" color="green" icon={Database} />
       <KPI title="Active Alerts" value="248" color="orange" icon={AlertTriangle} />
       <KPI title="Compliance" value="63%" color="purple" icon={FileText} />

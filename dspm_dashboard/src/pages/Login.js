@@ -16,8 +16,8 @@ const Login = ({ onLogin }) => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-lg shadow-md w-96 border">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-            <Shield className="w-10 h-10 text-blue-600" />
+          <div className="w-16 h-16 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+            <Shield className="w-10 h-10 text-primary-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900">DSPM Dashboard</h2>
           <p className="text-sm text-gray-600 mt-2">Sign in to your account</p>
@@ -32,7 +32,7 @@ const Login = ({ onLogin }) => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               placeholder="Enter your username"
               required
             />
@@ -46,7 +46,7 @@ const Login = ({ onLogin }) => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               placeholder="Enter your password"
               required
             />
@@ -54,7 +54,7 @@ const Login = ({ onLogin }) => {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            className="w-full bg-primary-600 text-white py-2 rounded-lg font-medium hover:bg-primary-900 transition-colors"
           >
             Sign In
           </button>
