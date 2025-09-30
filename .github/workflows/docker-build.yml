@@ -28,7 +28,7 @@ jobs:
             - name: Build and push
               uses: docker/build-push-action@v6
               with:
-                context: .
-                file: ./Dockerfile
+                context: ./dspm_dashboard
+                file: ./dspm_dashboard/Dockerfile
                 push: true
                 tags: comnyang/dashboard:latest
