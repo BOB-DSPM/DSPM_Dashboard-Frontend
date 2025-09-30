@@ -2,7 +2,7 @@ import React from 'react';
 
 const Sidebar = ({ tabs, activeTab, setActiveTab }) => (
   <div className="w-60 bg-white shadow-sm border-r">
-    <div className="flex flex-col py-4 mt-12">
+    <div className="flex flex-col py-4 mt-3">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         return (

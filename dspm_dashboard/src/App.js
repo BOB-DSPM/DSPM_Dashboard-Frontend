@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Login from './pages/Login';
+import Header from './components/navigation/Header';
 import Sidebar from './components/navigation/Sidebar';
 import Overview from './pages/Overview';
 import Inventory from './pages/Inventory';
@@ -11,17 +12,22 @@ import { Activity, Database, Bell, Shield, GitBranch,  Cloud } from 'lucide-reac
 
 const tabs = [
   { id: 'overview', name: 'Overview', icon: Activity },
+  { id: 'aws-setup', name: 'AWS Setup', icon: Cloud },
   { id: 'inventory', name: 'Inventory', icon: Database },
   { id: 'alerts', name: 'Alerts', icon: Bell },
   { id: 'policies', name: 'Policies', icon: Shield },
   { id: 'lineage', name: 'Lineage', icon: GitBranch },
-  { id: 'aws-setup', name: 'AWS Setup', icon: Cloud }
 ];
 
 const App = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
+  
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setActiveTab('overview');
+  };
+  
   const renderContent = () => {
     switch (activeTab) {
       case 'overview': return <Overview securityScoreData={{ score: 79 }} />;
@@ -40,9 +46,10 @@ const App = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
+      <Header onLogout={handleLogout} />
       <div className="flex flex-1">
         <Sidebar tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
-        <div className="flex-1 px-6 py-8 mt-12">{renderContent()}</div>
+        <div className="flex-1 px-6 py-8 ">{renderContent()}</div>
       </div>
     </div>
   );

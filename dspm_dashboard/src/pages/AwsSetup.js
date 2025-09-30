@@ -106,7 +106,7 @@ const AwsSetup = () => {
           AWS 콘솔에서 IAM Role 생성 시 아래 Trust Policy를 추가하세요.
         </p>
         <div className="relative">
-          <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+          <pre className="bg-primary-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
             {trustPolicy}
           </pre>
           <button
@@ -223,7 +223,7 @@ const AwsSetup = () => {
         {/* 제출 버튼 */}
         <button
           type="submit"
-          className="w-full bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors"
+          className="w-full bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-900 transition-colors"
         >
           연동 완료
         </button>
