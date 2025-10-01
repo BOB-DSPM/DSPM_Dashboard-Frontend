@@ -13,10 +13,6 @@ const Inventory = ({ activeTab }) => {
   
   return (
     <div className="space-y-4">
-      <h1>Inventory Page Test</h1>
-      <p>Health Status: {healthStatus}</p>
-      <p>Loading: {loadingInventory ? 'Yes' : 'No'}</p>
-      <p>Error: {error || 'None'}</p>
       {/* Health Status 표시 */}
       {healthStatus && (
         <div className={`p-4 rounded-lg ${

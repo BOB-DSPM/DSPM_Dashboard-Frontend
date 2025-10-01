@@ -12,11 +12,20 @@ export const useInventory = (activeTab) => {
         setLoadingInventory(true);
         setError(null);
         try {
-          const response = await fetch('/api/analyzer/health');
+          const response = await fetch('http://a64f03324ae56475c93a24a9c1f008f9-1410639248.ap-northeast-2.elb.amazonaws.com/api/analyzer/health');
           
           if (response.ok) {
             const data = await response.json();
-            setInventoryData(data);
+            console.log('Received data:', data); // 디버깅
+            
+            // data가 배열인지 확인하고, 아니면 빈 배열로 설정
+            if (Array.isArray(data)) {
+              setInventoryData(data);
+            } else {
+              // 객체나 다른 형태면 빈 배열
+              setInventoryData([]);
+            }
+            
             setHealthStatus('healthy!!');
           } else {
             setHealthStatus('unhealthy');
