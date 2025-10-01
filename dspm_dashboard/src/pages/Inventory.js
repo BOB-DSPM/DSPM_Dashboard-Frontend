@@ -3,14 +3,20 @@ import { useInventory } from '../hooks/useInventory';
 import InventoryList from '../components/inventory/InventoryList';
 
 const Inventory = ({ activeTab }) => {
+  console.log('Inventory rendering, activeTab:', activeTab);
+  
   const { inventoryData, loadingInventory, healthStatus, error } = useInventory(activeTab);
   
-  if (loadingInventory) {
-    return <div className="p-4">Loading...</div>;
-  }
+  console.log('healthStatus:', healthStatus);
+  console.log('inventoryData:', inventoryData);
+  console.log('error:', error);
   
   return (
     <div className="space-y-4">
+      <h1>Inventory Page Test</h1>
+      <p>Health Status: {healthStatus}</p>
+      <p>Loading: {loadingInventory ? 'Yes' : 'No'}</p>
+      <p>Error: {error || 'None'}</p>
       {/* Health Status 표시 */}
       {healthStatus && (
         <div className={`p-4 rounded-lg ${
