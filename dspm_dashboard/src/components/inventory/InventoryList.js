@@ -4,12 +4,22 @@ import { Database } from 'lucide-react';
 const InventoryList = ({ inventoryData, loading }) => {
   if (loading) return <div>Loading inventory...</div>;
 
+  // 데이터가 없을 때 표시
+  if (!inventoryData || inventoryData.length === 0) {
+    return (
+      <div className="bg-white rounded-lg p-6 shadow-sm border">
+        <h3 className="text-lg font-semibold mb-4">Data Resources Inventory</h3>
+        <p className="text-gray-500 text-center py-8">No inventory data available</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm border">
       <h3 className="text-lg font-semibold mb-4">Data Resources Inventory</h3>
       <div className="space-y-3">
-        {inventoryData.map((item) => (
-          <div key={item.name} className="flex items-center justify-between p-3 border rounded-lg">
+        {inventoryData.map((item, index) => (
+          <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
             <div className="flex items-center space-x-3">
               <Database className="w-5 h-5 text-gray-500" />
               <span className="font-medium">{item.name}</span>
