@@ -12,7 +12,7 @@ export const useInventory = (activeTab) => {
         setLoadingInventory(true);
         setError(null);
         try {
-          const response = await fetch('http://analyzer:8080/health');
+          const response = await fetch('http://a64f03324ae56475c93a24a9c1f008f9-1410639248.ap-northeast-2.elb.amazonaws.com/api/analyzer/health');
           
           if (response.ok) {
             const data = await response.json();
