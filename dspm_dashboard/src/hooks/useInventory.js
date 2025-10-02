@@ -12,7 +12,7 @@ export const useInventory = (activeTab) => {
         setLoadingInventory(true);
         setError(null);
         try {
-          const response = await fetch('http://dspmeksstack-dspmdatabasea69d27a7-mpaad13vdkra.cdsikyuewe0q.ap-northeast-2.rds.amazonaws.com/api/analyzer/health');
+          const response = await fetch('http://a76fed65d95a44bf7b669ec7b60819ca-1275327048.ap-northeast-2.elb.amazonaws.com/api/analyzer/health');
           
           if (response.ok) {
             const data = await response.json();
@@ -44,4 +44,5 @@ export const useInventory = (activeTab) => {
   }, [activeTab]);
 
   return { inventoryData, loadingInventory, healthStatus, error };
+
 };
