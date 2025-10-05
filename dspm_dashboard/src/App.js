@@ -20,6 +20,8 @@ const tabs = [
 ];
 
 const App = () => {
+  console.log('App is rendering');
+
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   

@@ -54,7 +54,7 @@ const InventoryList = ({ inventoryData, loading }) => {
     ? inventoryData 
     : inventoryData.filter(r => r.type === filter);
 
-  // 각 타입별 리소스 개수 계산
+  // 각 타입별 리소스 개수 계산d
   const getResourceCount = (type) => {
     return inventoryData.filter(r => r.type === type).length;
   };
@@ -108,7 +108,7 @@ const InventoryList = ({ inventoryData, loading }) => {
                   <input
                     type="checkbox"
                     checked={selectedResources.has(resource.id)}
-                    onChange={() => {}}
+                    onChange={(e) => toggleResourceSelection(e, resource.id)}
                     className="w-5 h-5 text-primary-600 rounded cursor-pointer"
                     onClick={(e) => e.stopPropagation()}
                   />
