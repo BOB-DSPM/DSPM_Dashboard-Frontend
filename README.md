@@ -8,3 +8,4 @@
 - TypeScript
 - Tailwind CSS
 
+## fix: package.json
