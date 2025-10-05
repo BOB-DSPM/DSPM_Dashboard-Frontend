@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import ResourceCard from './ResourceCard';
 import DetailPanel from './DetailPanel';
@@ -7,8 +6,9 @@ const InventoryList = ({ inventoryData, loading }) => {
   const [selectedResource, setSelectedResource] = useState(null);
   const [selectedResources, setSelectedResources] = useState(new Set());
   const [filter, setFilter] = useState('all');
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
-  // 모든 리소스 타입 정의 (데이터 유무 관계없이)
+  // 모든 리소스 타입 정의
   const allResourceTypes = [
     { type: 's3', label: 'S3' },
     { type: 'ebs', label: 'EBS' },
@@ -27,16 +27,55 @@ const InventoryList = ({ inventoryData, loading }) => {
     { type: 'msk', label: 'MSK' }
   ];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-gray-600">리소스를 불러오는 중...</div>
-      </div>
-    );
-  }
+  // API 엔드포인트 매핑
+  const getDetailEndpoint = (resource) => {
+    const endpointMap = {
+      's3': `/api/repositories/s3/${resource.name}`,
+      'efs': `/api/repositories/efs/${resource.name}`,
+      'fsx': `/api/repositories/fsx/${resource.name}`,
+      'rds': `/api/repositories/rds/${resource.name}`,
+      'dynamodb': `/api/repositories/dynamodb/${resource.name}`,
+      'redshift': `/api/repositories/redshift/${resource.name}`,
+      'rds_snapshot': `/api/repositories/rds-snapshot/${resource.name}`,
+      'elasticache': `/api/repositories/elasticache/${resource.name}`,
+      'glacier': `/api/repositories/glacier/${resource.name}`,
+      'backup': `/api/repositories/backup/${resource.name}`,
+      'feature_group': `/api/repositories/feature-group/${resource.name}`,
+      'glue': `/api/repositories/glue/${resource.name}`,
+      'kinesis': `/api/repositories/kinesis/${resource.name}`,
+      'msk': `/api/repositories/msk/${resource.name}`
+    };
+    
+    return endpointMap[resource.type];
+  };
 
-  const handleResourceClick = (resource) => {
-    setSelectedResource(resource);
+  const handleResourceClick = async (resource) => {
+    setLoadingDetail(true);
+    try {
+      const endpoint = getDetailEndpoint(resource);
+      if (!endpoint) {
+        console.error('Unknown resource type:', resource.type);
+        setSelectedResource(resource);
+        return;
+      }
+
+      const response = await fetch(endpoint);
+      if (response.ok) {
+        const detailData = await response.json();
+        setSelectedResource({
+          ...resource,
+          details: detailData
+        });
+      } else {
+        console.error('Failed to fetch detail:', response.status);
+        setSelectedResource(resource);
+      }
+    } catch (error) {
+      console.error('Error fetching resource detail:', error);
+      setSelectedResource(resource);
+    } finally {
+      setLoadingDetail(false);
+    }
   };
 
   const toggleResourceSelection = (e, resourceId) => {
@@ -54,10 +93,17 @@ const InventoryList = ({ inventoryData, loading }) => {
     ? inventoryData 
     : inventoryData.filter(r => r.type === filter);
 
-  // 각 타입별 리소스 개수 계산d
   const getResourceCount = (type) => {
     return inventoryData.filter(r => r.type === type).length;
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-gray-600">리소스를 불러오는 중...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -101,16 +147,15 @@ const InventoryList = ({ inventoryData, loading }) => {
                   onClick={() => handleResourceClick(resource)}
                   isSelected={selectedResources.has(resource.id)}
                 />
-                <div 
-                  className="absolute top-2 right-2 z-10"
-                  onClick={(e) => toggleResourceSelection(e, resource.id)}
-                >
+                <div className="absolute top-2 right-2 z-10">
                   <input
                     type="checkbox"
                     checked={selectedResources.has(resource.id)}
-                    onChange={(e) => toggleResourceSelection(e, resource.id)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      toggleResourceSelection(e, resource.id);
+                    }}
                     className="w-5 h-5 text-primary-600 rounded cursor-pointer"
-                    onClick={(e) => e.stopPropagation()}
                   />
                 </div>
               </div>
@@ -125,7 +170,8 @@ const InventoryList = ({ inventoryData, loading }) => {
 
       {selectedResource && (
         <DetailPanel 
-          resource={selectedResource} 
+          resource={selectedResource}
+          loading={loadingDetail}
           onClose={() => setSelectedResource(null)} 
         />
       )}

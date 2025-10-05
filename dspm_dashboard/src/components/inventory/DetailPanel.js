@@ -25,11 +25,11 @@ const ResourceIcon = ({ type }) => {
   return icons[type] || <Database {...iconProps} />;
 };
 
-const DetailPanel = ({ resource, onClose }) => {
+const DetailPanel = ({ resource, loading, onClose }) => {
   if (!resource) return null;
   
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-xl border-l border-gray-200 overflow-y-auto z-50">
+    <div className="fixed inset-y-0 right-0 w-1/2 bg-white shadow-xl border-l border-gray-200 overflow-y-auto z-50">
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900">리소스 상세정보</h2>
@@ -43,32 +43,38 @@ const DetailPanel = ({ resource, onClose }) => {
           </button>
         </div>
         
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 pb-4 border-b">
-            <ResourceIcon type={resource.type} />
-            <div>
-              <div className="font-medium text-gray-900">{resource.name}</div>
-              <div className="text-sm text-gray-500">{resource.typeLabel}</div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-gray-600">상세 정보를 불러오는 중...</div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 pb-4 border-b">
+              <ResourceIcon type={resource.type} />
+              <div>
+                <div className="font-medium text-gray-900">{resource.name}</div>
+                <div className="text-sm text-gray-500">{resource.typeLabel}</div>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {Object.entries(resource.details).map(([key, value]) => (
+                <div key={key}>
+                  <div className="text-xs font-medium text-gray-500 uppercase">{key}</div>
+                  <div className="mt-1 text-sm text-gray-900 break-words">
+                    {typeof value === 'object' ? (
+                      <pre className="bg-gray-50 p-2 rounded text-xs overflow-x-auto">
+                        {JSON.stringify(value, null, 2)}
+                      </pre>
+                    ) : (
+                      value || 'N/A'
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-          
-          <div className="space-y-3">
-            {Object.entries(resource.details).map(([key, value]) => (
-              <div key={key}>
-                <div className="text-xs font-medium text-gray-500 uppercase">{key}</div>
-                <div className="mt-1 text-sm text-gray-900 break-words">
-                  {typeof value === 'object' ? (
-                    <pre className="bg-gray-50 p-2 rounded text-xs overflow-x-auto">
-                      {JSON.stringify(value, null, 2)}
-                    </pre>
-                  ) : (
-                    value || 'N/A'
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
