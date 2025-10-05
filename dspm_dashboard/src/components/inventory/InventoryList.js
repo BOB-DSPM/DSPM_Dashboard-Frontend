@@ -54,7 +54,6 @@ const InventoryList = ({ inventoryData, loading }) => {
     try {
       const endpoint = getDetailEndpoint(resource);
       if (!endpoint) {
-        console.error('Unknown resource type:', resource.type);
         setSelectedResource(resource);
         return;
       }
@@ -62,16 +61,19 @@ const InventoryList = ({ inventoryData, loading }) => {
       const response = await fetch(endpoint);
       if (response.ok) {
         const detailData = await response.json();
+        
+        // 배열로 오면 첫 번째 요소 사용, 객체면 그대로 사용
+        const details = Array.isArray(detailData) ? detailData[0] : detailData;
+        
         setSelectedResource({
           ...resource,
-          details: detailData
+          details: details
         });
       } else {
-        console.error('Failed to fetch detail:', response.status);
         setSelectedResource(resource);
       }
     } catch (error) {
-      console.error('Error fetching resource detail:', error);
+      console.error('Error:', error);
       setSelectedResource(resource);
     } finally {
       setLoadingDetail(false);
@@ -168,13 +170,13 @@ const InventoryList = ({ inventoryData, loading }) => {
         )}
       </div>
 
-      {selectedResource && (
+      {selectedResource ? (
         <DetailPanel 
           resource={selectedResource}
           loading={loadingDetail}
           onClose={() => setSelectedResource(null)} 
         />
-      )}
+      ) : null}
     </div>
   );
 };
