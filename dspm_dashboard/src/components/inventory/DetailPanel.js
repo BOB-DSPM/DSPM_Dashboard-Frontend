@@ -58,20 +58,22 @@ const DetailPanel = ({ resource, loading, onClose }) => {
             </div>
             
             <div className="space-y-3">
-              {Object.entries(resource.details).map(([key, value]) => (
+            {Object.entries(resource.details)
+                .filter(([key]) => isNaN(Number(key))) // 숫자 키(배열 인덱스) 제외
+                .map(([key, value]) => (
                 <div key={key}>
-                  <div className="text-xs font-medium text-gray-500 uppercase">{key}</div>
-                  <div className="mt-1 text-sm text-gray-900 break-words">
-                    {typeof value === 'object' ? (
-                      <pre className="bg-gray-50 p-2 rounded text-xs overflow-x-auto">
+                    <div className="text-xs font-medium text-gray-500 uppercase">{key}</div>
+                    <div className="mt-1 text-sm text-gray-900 break-words">
+                    {typeof value === 'object' && value !== null ? (
+                        <pre className="bg-gray-50 p-2 rounded text-xs overflow-x-auto">
                         {JSON.stringify(value, null, 2)}
-                      </pre>
+                        </pre>
                     ) : (
-                      value || 'N/A'
+                        String(value ?? 'N/A')
                     )}
-                  </div>
+                    </div>
                 </div>
-              ))}
+                ))}
             </div>
           </div>
         )}
