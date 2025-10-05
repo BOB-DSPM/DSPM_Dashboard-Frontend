@@ -3,31 +3,17 @@ import { useInventory } from '../hooks/useInventory';
 import InventoryList from '../components/inventory/InventoryList';
 
 const Inventory = ({ activeTab }) => {
-  console.log('Inventory rendering, activeTab:', activeTab);
-  
-  const { inventoryData, loadingInventory, healthStatus, error } = useInventory(activeTab);
-  
-  console.log('healthStatus:', healthStatus);
-  console.log('inventoryData:', inventoryData);
-  console.log('error:', error);
+  const { inventoryData, loadingInventory, error } = useInventory(activeTab);
   
   return (
     <div className="space-y-4">
-      {/* Health Status 표시 */}
-      {healthStatus && (
-        <div className={`p-4 rounded-lg ${
-          healthStatus === 'healthy!!' ? 'bg-green-100 text-green-700' :
-          healthStatus === 'unhealthy' ? 'bg-yellow-100 text-yellow-700' :
-          'bg-red-100 text-red-700'
-        }`}>
-          {healthStatus === 'healthy!!' && '✓ Health check passed'}
-          {healthStatus === 'unhealthy' && '⚠ Health check failed'}
-          {healthStatus === 'error' && '✗ Connection error'}
-          {error && <p className="text-sm mt-1">{error}</p>}
+      {error && (
+        <div className="p-4 rounded-lg bg-red-100 text-red-700">
+          <p className="font-medium">오류 발생</p>
+          <p className="text-sm mt-1">{error}</p>
         </div>
       )}
       
-      {/* Inventory 데이터 표시 */}
       <InventoryList inventoryData={inventoryData} loading={loadingInventory} />
     </div>
   );
