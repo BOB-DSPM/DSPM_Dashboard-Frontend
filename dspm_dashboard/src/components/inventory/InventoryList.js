@@ -108,7 +108,7 @@ const InventoryList = ({ inventoryData, loading }) => {
                   <input
                     type="checkbox"
                     checked={selectedResources.has(resource.id)}
-                    onChange={() => {}}
+                    onChange={(e) => toggleResourceSelection(e, resource.id)}
                     className="w-5 h-5 text-primary-600 rounded cursor-pointer"
                     onClick={(e) => e.stopPropagation()}
                   />
