@@ -1,5 +1,7 @@
 import React from 'react';
 import { Database, HardDrive, Server, Cloud, Archive, Shield, Activity, FileText, Boxes } from 'lucide-react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const ResourceIcon = ({ type }) => {
   const iconProps = { size: 24, className: "text-primary-600" };
@@ -58,21 +60,29 @@ const DetailPanel = ({ resource, loading, onClose }) => {
             </div>
             
             <div className="space-y-3">
-            {Object.entries(resource.details)
-                .filter(([key]) => isNaN(Number(key))) // 숫자 키(배열 인덱스) 제외
+              {Object.entries(resource.details)
+                .filter(([key]) => isNaN(Number(key)))
                 .map(([key, value]) => (
-                <div key={key}>
+                  <div key={key}>
                     <div className="text-xs font-medium text-gray-500 uppercase">{key}</div>
-                    <div className="mt-1 text-sm text-gray-900 break-words">
-                    {typeof value === 'object' && value !== null ? (
-                        <pre className="bg-gray-50 p-2 rounded text-xs overflow-x-auto">
-                        {JSON.stringify(value, null, 2)}
-                        </pre>
-                    ) : (
-                        String(value ?? 'N/A')
-                    )}
+                    <div className="mt-1 text-sm break-words">
+                      {typeof value === 'object' && value !== null ? (
+                        <SyntaxHighlighter 
+                          language="json" 
+                          style={vscDarkPlus}
+                          customStyle={{
+                            margin: 0,
+                            borderRadius: '0.375rem',
+                            fontSize: '0.75rem'
+                          }}
+                        >
+                          {JSON.stringify(value, null, 2)}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <span className="text-gray-900">{String(value ?? 'N/A')}</span>
+                      )}
                     </div>
-                </div>
+                  </div>
                 ))}
             </div>
           </div>
