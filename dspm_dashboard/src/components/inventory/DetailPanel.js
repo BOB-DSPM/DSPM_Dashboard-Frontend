@@ -79,7 +79,9 @@ const DetailPanel = ({ resource, loading, onClose }) => {
                           {JSON.stringify(value, null, 2)}
                         </SyntaxHighlighter>
                       ) : (
-                        <span className="text-gray-900">{String(value ?? 'N/A')}</span>
+                        <div className="bg-gray-100 px-3 py-2 rounded text-gray-900 font-medium">
+                          {String(value ?? 'N/A')}
+                        </div>
                       )}
                     </div>
                   </div>
