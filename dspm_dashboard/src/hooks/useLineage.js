@@ -1,12 +1,64 @@
 import { useState, useCallback } from 'react';
 
-const LINEAGE_API = 'https://fze37ojotc.execute-api.ap-northeast-2.amazonaws.com/prod/';
+const LINEAGE_API = 'http://127.0.0.1:8000';
 
 export const useLineage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lineageData, setLineageData] = useState(null);
+  const [pipelines, setPipelines] = useState([]);
+  const [loadingPipelines, setLoadingPipelines] = useState(false);
 
+  // 파이프라인 목록 조회 (Catalog 사용)
+  const loadPipelines = useCallback(async (regions = 'ap-northeast-2') => {
+    setLoadingPipelines(true);
+    setError(null);
+
+    try {
+      const url = `${LINEAGE_API}/sagemaker/catalog?regions=${regions}`;
+      
+      console.log('Fetching pipelines from:', url);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('API Response:', data);
+      
+      // 파이프라인 목록 추출
+      const pipelineList = [];
+      if (data.regions && Array.isArray(data.regions)) {
+        data.regions.forEach(regionData => {
+          if (regionData.pipelines && Array.isArray(regionData.pipelines)) {
+            regionData.pipelines.forEach(pipe => {
+              pipelineList.push({
+                name: pipe.name,
+                arn: pipe.arn,
+                region: regionData.region,
+                lastModifiedTime: pipe.lastModifiedTime,
+                tags: pipe.tags || {},
+                matchedDomain: pipe.matchedDomain,
+              });
+            });
+          }
+        });
+      }
+      
+      console.log('Extracted pipeline list:', pipelineList);
+      setPipelines(pipelineList);
+      return pipelineList;
+    } catch (err) {
+      console.error('Failed to fetch pipelines:', err);
+      setError(err.message || '파이프라인 목록을 불러올 수 없습니다');
+      throw err;
+    } finally {
+      setLoadingPipelines(false);
+    }
+  }, []);
+
+  // 특정 파이프라인의 lineage 조회
   const loadLineage = useCallback(async (pipelineName, region = 'ap-northeast-2') => {
     if (!pipelineName || !pipelineName.trim()) {
       setError('파이프라인 이름을 입력하세요');
@@ -36,5 +88,13 @@ export const useLineage = () => {
     }
   }, []);
 
-  return { lineageData, loading, error, loadLineage };
+  return { 
+    lineageData, 
+    loading, 
+    error, 
+    loadLineage,
+    pipelines,
+    loadingPipelines,
+    loadPipelines
+  };
 };

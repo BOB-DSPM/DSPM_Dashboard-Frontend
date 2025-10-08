@@ -6,9 +6,9 @@ const DataTargetList = ({ inventoryData, loading }) => {
   const [selectedResource, setSelectedResource] = useState(null);
   const [selectedResources, setSelectedResources] = useState(new Set());
   const [filter, setFilter] = useState('all');
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
-  // 모든 리소스 타입 정의
+  // 모든 리소스 타입 정의 (데이터 유무 관계없이)
   const allResourceTypes = [
     { type: 's3', label: 'S3' },
     { type: 'ebs', label: 'EBS' },
@@ -27,57 +27,16 @@ const DataTargetList = ({ inventoryData, loading }) => {
     { type: 'msk', label: 'MSK' }
   ];
 
-  // API 엔드포인트 매핑
-  const getDetailEndpoint = (resource) => {
-    const endpointMap = {
-      's3': `/api/repositories/s3/${resource.name}`,
-      'efs': `/api/repositories/efs/${resource.name}`,
-      'fsx': `/api/repositories/fsx/${resource.name}`,
-      'rds': `/api/repositories/rds/${resource.name}`,
-      'dynamodb': `/api/repositories/dynamodb/${resource.name}`,
-      'redshift': `/api/repositories/redshift/${resource.name}`,
-      'rds_snapshot': `/api/repositories/rds-snapshot/${resource.name}`,
-      'elasticache': `/api/repositories/elasticache/${resource.name}`,
-      'glacier': `/api/repositories/glacier/${resource.name}`,
-      'backup': `/api/repositories/backup/${resource.name}`,
-      'feature_group': `/api/repositories/feature-group/${resource.name}`,
-      'glue': `/api/repositories/glue/${resource.name}`,
-      'kinesis': `/api/repositories/kinesis/${resource.name}`,
-      'msk': `/api/repositories/msk/${resource.name}`
-    };
-    
-    return endpointMap[resource.type];
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-gray-600">리소스를 불러오는 중...</div>
+      </div>
+    );
+  }
 
-  const handleResourceClick = async (resource) => {
-    setLoadingDetail(true);
-    try {
-      const endpoint = getDetailEndpoint(resource);
-      if (!endpoint) {
-        setSelectedResource(resource);
-        return;
-      }
-
-      const response = await fetch(endpoint);
-      if (response.ok) {
-        const detailData = await response.json();
-        
-        // 배열로 오면 첫 번째 요소 사용, 객체면 그대로 사용
-        const details = Array.isArray(detailData) ? detailData[0] : detailData;
-        
-        setSelectedResource({
-          ...resource,
-          details: details
-        });
-      } else {
-        setSelectedResource(resource);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      setSelectedResource(resource);
-    } finally {
-      setLoadingDetail(false);
-    }
+  const handleResourceClick = (resource) => {
+    setSelectedResource(resource);
   };
 
   const toggleResourceSelection = (e, resourceId) => {
@@ -91,28 +50,91 @@ const DataTargetList = ({ inventoryData, loading }) => {
     setSelectedResources(newSelected);
   };
 
+  // 선택한 리소스 전송 함수
+  const handleSendToAnalyzer = async () => {
+    if (selectedResources.size === 0) {
+      alert('위협 식별할 저장소를 선택해주세요.');
+      return;
+    }
+
+    setIsSending(true);
+
+    try {
+      // 선택된 리소스 정보 수집
+      const selectedItems = inventoryData.filter(item => 
+        selectedResources.has(item.id)
+      );
+
+      console.log('선택된 리소스:', selectedItems);
+
+      // TODO: 여기에 실제 API 호출 추가
+      // const response = await fetch('/api/analyze', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ resources: selectedItems })
+      // });
+
+      // 임시: 2초 후 성공 메시지
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      alert(`${selectedResources.size}개의 리소스가 인벤토리로 전송되었습니다.`);
+      
+      // 선택 초기화
+      setSelectedResources(new Set());
+
+    } catch (error) {
+      console.error('전송 실패:', error);
+      alert('전송 중 오류가 발생했습니다.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const filteredResources = filter === 'all' 
     ? inventoryData 
     : inventoryData.filter(r => r.type === filter);
 
+  // 각 타입별 리소스 개수 계산
   const getResourceCount = (type) => {
     return inventoryData.filter(r => r.type === type).length;
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-gray-600">리소스를 불러오는 중...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg p-6 shadow-sm border">
         <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">AWS 리소스 인벤토리</h3>
-          <p className="text-gray-600">총 {inventoryData.length}개의 리소스 | {selectedResources.size}개 선택됨</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">AWS 리소스 인벤토리</h3>
+              <p className="text-gray-600">총 {inventoryData.length}개의 리소스 | {selectedResources.size}개 선택됨</p>
+            </div>
+            
+            {/* 전송 버튼 */}
+            {selectedResources.size > 0 && (
+              <button
+                onClick={handleSendToAnalyzer}
+                disabled={isSending}
+                className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+              >
+                {isSending ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    전송 중...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    위협 식별 시작 ({selectedResources.size})
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="mb-6 flex gap-2 flex-wrap">
@@ -170,13 +192,12 @@ const DataTargetList = ({ inventoryData, loading }) => {
         )}
       </div>
 
-      {selectedResource ? (
+      {selectedResource && (
         <DetailPanel 
-          resource={selectedResource}
-          loading={loadingDetail}
+          resource={selectedResource} 
           onClose={() => setSelectedResource(null)} 
         />
-      ) : null}
+      )}
     </div>
   );
 };
