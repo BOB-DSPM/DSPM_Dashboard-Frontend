@@ -62,24 +62,64 @@ const Lineage = () => {
 
   // API 데이터를 ReactFlow 노드로 변환
   // dagre를 사용한 자동 레이아웃
-  const getLayoutedElements = (nodes, edges) => {
+  // dagre를 사용한 자동 레이아웃
+  const getLayoutedElements = (nodes, edges, graphData) => {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     
     // 그래프 설정: 왼쪽에서 오른쪽으로 배치
     dagreGraph.setGraph({ 
-      rankdir: 'LR',  // Left to Right
-      nodesep: 100,   // 노드 간 간격
-      ranksep: 150,   // 레벨 간 간격
+      rankdir: 'LR',
+      nodesep: 50,
+      ranksep: 80,
+      ranker: 'tight-tree', // 더 타이트한 레이아웃
     });
 
-    // 노드 추가
+    // 실행 시간 기준으로 레벨 계산
+    const nodeLevels = {};
+    if (graphData && graphData.nodes) {
+      const sortedNodes = [...graphData.nodes].sort((a, b) => {
+        const aTime = new Date(a.run?.startTime || 0);
+        const bTime = new Date(b.run?.startTime || 0);
+        return aTime - bTime;
+      });
+      
+      let currentLevel = 0;
+      let lastTime = null;
+      
+      sortedNodes.forEach(node => {
+        const startTime = new Date(node.run?.startTime || 0).getTime();
+        
+        // 시작 시간이 크게 다르면 다음 레벨로
+        if (lastTime && startTime - lastTime > 60000) { // 1분 이상 차이
+          currentLevel++;
+        }
+        
+        nodeLevels[node.id] = currentLevel;
+        lastTime = startTime;
+      });
+    }
+
+    // 노드 추가 (rank 지정)
     nodes.forEach((node) => {
-      dagreGraph.setNode(node.id, { width: 180, height: 80 });
+      dagreGraph.setNode(node.id, { 
+        width: 180, 
+        height: 80,
+        rank: nodeLevels[node.id] // 시간 기반 레벨 지정
+      });
+    });
+
+    // Preprocess → Evaluate 엣지 필터링 (직접 연결 제거)
+    const filteredEdges = edges.filter(edge => {
+      // Preprocess가 Evaluate로 직접 가는 엣지 제거
+      if (edge.source === 'Preprocess' && edge.target === 'Evaluate') {
+        return false;
+      }
+      return true;
     });
 
     // 엣지 추가
-    edges.forEach((edge) => {
+    filteredEdges.forEach((edge) => {
       dagreGraph.setEdge(edge.source, edge.target);
     });
 
@@ -92,7 +132,7 @@ const Lineage = () => {
       return {
         ...node,
         position: {
-          x: nodeWithPosition.x - 90,  // 중앙 정렬
+          x: nodeWithPosition.x - 90,
           y: nodeWithPosition.y - 40,
         },
       };
@@ -129,23 +169,109 @@ const Lineage = () => {
   };
 
   // API 데이터를 ReactFlow 엣지로 변환
+  // API 데이터를 ReactFlow 엣지로 변환 (누락된 연결 자동 보완)
+  // API 데이터를 ReactFlow 엣지로 변환 (누락된 연결 자동 보완)
   const convertToEdges = (graphData) => {
     if (!graphData || !graphData.edges) return [];
     
-    return graphData.edges.map((edge, index) => ({
-      id: `e${index}`,
-      source: edge.from,
-      target: edge.to,
-      animated: true,
-      style: { stroke: '#6366f1', strokeWidth: 2 },
-      type: 'smoothstep',
-      label: '',
-      labelStyle: { fontSize: 10, fill: '#6b7280' },
-    }));
+    const edges = [];
+    const edgeSet = new Set(); // 중복 방지
+    
+    // 1. API에서 제공한 edges 추가
+    graphData.edges.forEach((edge, index) => {
+      const edgeId = `${edge.from}-${edge.to}`;
+      if (!edgeSet.has(edgeId)) {
+        edges.push({
+          id: `e${edges.length}`,
+          source: edge.from,
+          target: edge.to,
+          animated: true,
+          style: { stroke: '#6366f1', strokeWidth: 2 },
+          type: 'smoothstep',
+          label: '',
+          labelStyle: { fontSize: 10, fill: '#6b7280' },
+        });
+        edgeSet.add(edgeId);
+      }
+    });
+    
+    // 2. inputs/outputs URI 매칭으로 누락된 edges 자동 생성
+    if (graphData.nodes) {
+      graphData.nodes.forEach(targetNode => {
+        if (!targetNode.inputs || targetNode.inputs.length === 0) return;
+        
+        // 각 input에 대해 해당 output을 가진 소스 노드 찾기
+        targetNode.inputs.forEach(input => {
+          // code 입력은 제외 (스크립트 파일)
+          if (input.name === 'code') return;
+          
+          graphData.nodes.forEach(sourceNode => {
+            if (sourceNode.id === targetNode.id) return; // 자기 자신 제외
+            if (!sourceNode.outputs || sourceNode.outputs.length === 0) return;
+            
+            // output URI가 input URI와 매칭되는지 확인
+            const matchingOutput = sourceNode.outputs.find(output => 
+              output.uri === input.uri
+            );
+            
+            if (matchingOutput) {
+              const edgeId = `${sourceNode.id}-${targetNode.id}`;
+              
+              // 이미 존재하는 edge가 아니면 추가
+              if (!edgeSet.has(edgeId)) {
+                edges.push({
+                  id: `e${edges.length}`,
+                  source: sourceNode.id,
+                  target: targetNode.id,
+                  animated: true,
+                  style: { stroke: '#10b981', strokeWidth: 2 }, // 자동 생성은 초록색
+                  type: 'smoothstep',
+                  label: input.name || matchingOutput.name || '', // 데이터 이름 표시
+                  labelStyle: { fontSize: 9, fill: '#059669', fontWeight: 500 },
+                });
+                edgeSet.add(edgeId);
+              }
+            }
+          });
+        });
+      });
+      
+      // 3. Condition 노드 처리 (ModelQualityCheck 등)
+      graphData.nodes.forEach(node => {
+        if (node.type === 'Condition') {
+          // Condition 노드는 시간 순서상 가장 마지막 Processing/Training 노드 다음
+          const lastNode = graphData.nodes
+            .filter(n => n.type === 'Processing' || n.type === 'Training')
+            .sort((a, b) => {
+              const aTime = new Date(a.run?.endTime || 0);
+              const bTime = new Date(b.run?.endTime || 0);
+              return bTime - aTime;
+            })[0];
+          
+          if (lastNode) {
+            const edgeId = `${lastNode.id}-${node.id}`;
+            if (!edgeSet.has(edgeId)) {
+              edges.push({
+                id: `e${edges.length}`,
+                source: lastNode.id,
+                target: node.id,
+                animated: true,
+                style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '5,5' }, // 점선
+                type: 'smoothstep',
+                label: 'condition',
+                labelStyle: { fontSize: 9, fill: '#f59e0b', fontWeight: 500 },
+              });
+              edgeSet.add(edgeId);
+            }
+          }
+        }
+      });
+    }
+    
+    return edges;
   };
 
-  // 리니지 데이터 로드
-  // 리니지 데이터 로드
+  // 리니지 데이터 로드 함수 추가
   const loadLineageData = async () => {
     try {
       const data = await loadLineage(pipelineName);
@@ -154,11 +280,19 @@ const Lineage = () => {
         const convertedNodes = convertToNodes(data.graph);
         const convertedEdges = convertToEdges(data.graph);
         
-        // dagre 레이아웃 적용
-        const layoutedNodes = getLayoutedElements(convertedNodes, convertedEdges);
+        // Preprocess → Evaluate 직접 엣지 제거
+        const filteredEdges = convertedEdges.filter(edge => {
+          if (edge.source === 'Preprocess' && edge.target === 'Evaluate') {
+            return false;
+          }
+          return true;
+        });
+        
+        // dagre 레이아웃 적용 (필터링된 엣지 사용)
+        const layoutedNodes = getLayoutedElements(convertedNodes, filteredEdges, data.graph);
         
         setNodes(layoutedNodes);
-        setEdges(convertedEdges);
+        setEdges(filteredEdges); // 필터링된 엣지 설정
       }
     } catch (err) {
       // 에러는 이미 useLineage에서 처리됨
