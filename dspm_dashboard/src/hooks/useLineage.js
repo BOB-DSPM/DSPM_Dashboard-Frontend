@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-const LINEAGE_API = 'https://3q28fda8dc.execute-api.ap-northeast-2.amazonaws.com/prod/';
+const LINEAGE_API = 'https://fze37ojotc.execute-api.ap-northeast-2.amazonaws.com/prod/';
 
 export const useLineage = () => {
   const [loading, setLoading] = useState(false);

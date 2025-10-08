@@ -3,7 +3,7 @@ import Login from './pages/Login';
 import Header from './components/navigation/Header';
 import Sidebar from './components/navigation/Sidebar';
 import Overview from './pages/Overview';
-import Inventory from './pages/Inventory';
+import Inventory from './pages/DataTarget';
 import Alerts from './pages/Alerts';
 import Policies from './pages/Policies';
 import Lineage from './pages/Lineage';
@@ -13,7 +13,7 @@ import { Activity, Database, Bell, Shield, GitBranch,  Cloud,Target  } from 'luc
 const tabs = [
   { id: 'overview', name: 'Overview', icon: Activity },
   { id: 'aws-setup', name: 'AWS Setup', icon: Cloud },
-  { id: 'inventory', name: 'Data Target', icon: Target },
+  { id: 'data-target', name: 'Data Target', icon: Target },
   { id: 'lineage', name: 'Lineage', icon: GitBranch },
   { id: 'policies', name: 'Compliance Status', icon: Shield },
   { id: 'alerts', name: 'Alerts', icon: Bell },
@@ -34,7 +34,7 @@ const App = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview': return <Overview securityScoreData={{ score: 79 }} />;
-      case 'inventory': return <Inventory activeTab={activeTab} />;
+      case 'data-target': return <Inventory activeTab={activeTab} />;
       case 'alerts': return <Alerts />;
       case 'policies': return <Policies />;
       case 'lineage': return <Lineage />;

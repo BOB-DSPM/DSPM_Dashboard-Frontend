@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ResourceCard from './ResourceCard';
 import DetailPanel from './DetailPanel';
 
-const InventoryList = ({ inventoryData, loading }) => {
+const DataTargetList = ({ inventoryData, loading }) => {
   const [selectedResource, setSelectedResource] = useState(null);
   const [selectedResources, setSelectedResources] = useState(new Set());
   const [filter, setFilter] = useState('all');
@@ -181,4 +181,4 @@ const InventoryList = ({ inventoryData, loading }) => {
   );
 };
 
-export default InventoryList;
+export default DataTargetList;
