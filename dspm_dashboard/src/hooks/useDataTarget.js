@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 
-export const useInventory = (activeTab) => {
+export const useDataTarget = (activeTab) => {
   const [inventoryData, setInventoryData] = useState([]);
   const [loadingInventory, setLoadingInventory] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (activeTab === 'inventory') {
+    if (activeTab === 'data-target') {
       const fetchInventory = async () => {
         setLoadingInventory(true);
         setError(null);
