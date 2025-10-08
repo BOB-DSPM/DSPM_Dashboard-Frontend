@@ -8,15 +8,16 @@ import Alerts from './pages/Alerts';
 import Policies from './pages/Policies';
 import Lineage from './pages/Lineage';
 import AwsSetup from './pages/AwsSetup';
-import { Activity, Database, Bell, Shield, GitBranch,  Cloud } from 'lucide-react';
+import { Activity, Database, Bell, Shield, GitBranch,  Cloud,Target  } from 'lucide-react';
 
 const tabs = [
   { id: 'overview', name: 'Overview', icon: Activity },
   { id: 'aws-setup', name: 'AWS Setup', icon: Cloud },
-  { id: 'inventory', name: 'Inventory', icon: Database },
-  { id: 'alerts', name: 'Alerts', icon: Bell },
-  { id: 'policies', name: 'Policies', icon: Shield },
+  { id: 'inventory', name: 'Data Target', icon: Target },
   { id: 'lineage', name: 'Lineage', icon: GitBranch },
+  { id: 'policies', name: 'Compliance Status', icon: Shield },
+  { id: 'alerts', name: 'Alerts', icon: Bell },
+  ///{ id: 'inventory', name: 'Inventory', icon: Database },
 ];
 
 const App = () => {
