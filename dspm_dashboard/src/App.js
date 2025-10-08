@@ -16,6 +16,7 @@ const tabs = [
   { id: 'data-target', name: 'Data Target', icon: Target },
   { id: 'lineage', name: 'Lineage', icon: GitBranch },
   { id: 'policies', name: 'Compliance Status', icon: Shield },
+  { id: 'policies2', name: 'Policies', icon: Shield },
   { id: 'alerts', name: 'Alerts', icon: Bell },
   ///{ id: 'inventory', name: 'Inventory', icon: Database },
 ];
