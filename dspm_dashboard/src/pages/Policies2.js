@@ -1,16 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, ChevronRight, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Shield, ChevronRight, CheckCircle, XCircle, AlertCircle, Play, X, ChevronDown, ChevronUp } from 'lucide-react';
+import gdprLogo from './logo/gdpr.png';
+import ismspLogo from './logo/ismsp.png';
+import iso27001Logo from './logo/iso27001.png';
+import iso27017Logo from './logo/iso27017.png';
 
-const API_BASE = '';
+const API_BASE = 'http://192.168.0.10:8003';
+const AUDIT_API_BASE = 'http://192.168.0.10:8103';
 
 const Policies2 = () => {
   const [frameworks, setFrameworks] = useState([]);
   const [selectedFramework, setSelectedFramework] = useState(null);
   const [requirements, setRequirements] = useState([]);
-  const [selectedRequirement, setSelectedRequirement] = useState(null);
   const [mappingDetail, setMappingDetail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [auditing, setAuditing] = useState(false);
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState({});
+  const [auditResults, setAuditResults] = useState({});
+
+  const frameworkLogos = {
+    'GDPR': gdprLogo,
+    'ISMS-P': ismspLogo,
+    'ISO-27001': iso27001Logo,
+    'iso-27001': iso27001Logo,
+    'ISO-27017': iso27017Logo,
+    'iso-27017': iso27017Logo,
+    'default': null
+  };
+
+  const getFrameworkLogo = (frameworkName) => {
+    return frameworkLogos[frameworkName] || frameworkLogos['default'];
+  };
 
   useEffect(() => {
     fetchFrameworks();
@@ -20,12 +42,11 @@ const Policies2 = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/compliance/compliance/stats`);
+      const response = await fetch(`${API_BASE}/compliance/stats`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      console.log('Frameworks data:', data);
       setFrameworks(data);
     } catch (error) {
       console.error('프레임워크 조회 실패:', error);
@@ -38,11 +59,11 @@ const Policies2 = () => {
   const fetchRequirements = async (frameworkCode) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/compliance/compliance/${frameworkCode}/requirements`);
+      const response = await fetch(`${API_BASE}/compliance/${frameworkCode}/requirements`);
       const data = await response.json();
       setRequirements(data);
       setSelectedFramework(frameworkCode);
-      setSelectedRequirement(null);
+      setSidePanelOpen(false);
       setMappingDetail(null);
     } catch (error) {
       console.error('요구사항 조회 실패:', error);
@@ -54,10 +75,10 @@ const Policies2 = () => {
   const fetchMappingDetail = async (frameworkCode, reqId) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/compliance/compliance/${frameworkCode}/requirements/${reqId}/mappings`);
+      const response = await fetch(`${API_BASE}/compliance/${frameworkCode}/requirements/${reqId}/mappings`);
       const data = await response.json();
       setMappingDetail(data);
-      setSelectedRequirement(reqId);
+      setSidePanelOpen(true);
     } catch (error) {
       console.error('매핑 상세 조회 실패:', error);
     } finally {
@@ -65,27 +86,153 @@ const Policies2 = () => {
     }
   };
 
-  const getMappingStatusIcon = (status) => {
-    if (status === 'Mapped') return <CheckCircle className="w-4 h-4 text-green-500" />;
-    if (status === 'Partial') return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-    return <XCircle className="w-4 h-4 text-gray-400" />;
+  const auditRequirement = async (frameworkCode, reqId) => {
+    setAuditing(true);
+    try {
+      const response = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/${reqId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`Audit failed: ${response.status}`);
+      }
+      const auditData = await response.json();
+      console.log('Audit result:', auditData);
+      
+      setAuditResults(prev => ({
+        ...prev,
+        [reqId]: auditData
+      }));
+      
+      setRequirements(prev => prev.map(req => {
+        if (req.id === reqId) {
+          return {
+            ...req,
+            mapping_status: auditData.requirement_status || 'Audited',
+            audit_result: auditData
+          };
+        }
+        return req;
+      }));
+      
+      alert('감사가 완료되었습니다.');
+    } catch (error) {
+      console.error('감사 실패:', error);
+      alert('감사에 실패했습니다: ' + error.message);
+    } finally {
+      setAuditing(false);
+    }
+  };
+
+  const auditAllFramework = async (frameworkCode) => {
+    if (!window.confirm(`${frameworkCode} 전체 항목에 대한 감사를 수행하시겠습니까?`)) {
+      return;
+    }
+    setAuditing(true);
+    try {
+      const response = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/_all`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`Audit failed: ${response.status}`);
+      }
+      const allAuditData = await response.json();
+      console.log('All audit results:', allAuditData);
+      
+      const newAuditResults = {};
+      const updatedRequirements = requirements.map(req => {
+        const reqResult = allAuditData.results?.find(r => r.requirement_id === req.id);
+        if (reqResult) {
+          newAuditResults[req.id] = reqResult;
+          return {
+            ...req,
+            mapping_status: reqResult.requirement_status || 'Audited',
+            audit_result: reqResult
+          };
+        }
+        return req;
+      });
+      
+      setAuditResults(prev => ({ ...prev, ...newAuditResults }));
+      setRequirements(updatedRequirements);
+      
+      alert('전체 감사가 완료되었습니다.');
+    } catch (error) {
+      console.error('전체 감사 실패:', error);
+      alert('전체 감사에 실패했습니다: ' + error.message);
+    } finally {
+      setAuditing(false);
+    }
+  };
+
+    const getMappingStatusBadge = (status) => {
+        if (status === 'COMPLIANT' || status === 'Compliant') {
+            return (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                준수
+            </span>
+            );
+        }
+        if (status === 'NON_COMPLIANT' || status === 'Non-Compliant') {
+            return (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                미준수
+            </span>
+            );
+        }
+        if (status === 'SKIPPED' || status === 'Skipped') {
+            return (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                건너뜀
+            </span>
+            );
+        }
+        // 기본값: 감사 안한 상태
+        return (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+            -
+            </span>
+        );
+        };
+    const getStatusIcon = (status) => {
+        if (status === 'COMPLIANT') {
+            return <CheckCircle className="w-4 h-4 text-blue-600" />;
+        } else if (status === 'NON_COMPLIANT') {
+            return <XCircle className="w-4 h-4 text-red-600" />;
+        } else if (status === 'SKIPPED') {
+            return <AlertCircle className="w-4 h-4 text-yellow-500" />;
+        } else if (status === 'ERROR') {
+            return <XCircle className="w-4 h-4 text-red-600" />;
+        } else {
+            return <AlertCircle className="w-4 h-4 text-gray-400" />;
+        }
+    };
+
+  const toggleExpand = (mappingCode) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [mappingCode]: !prev[mappingCode]
+    }));
+  };
+
+  const closeSidePanel = () => {
+    setSidePanelOpen(false);
+    setMappingDetail(null);
+    setExpandedItems({});
   };
 
   return (
-    <div className="space-y-6">
-      {/* 헤더 */}
+    <div className="space-y-6 relative">
       <div className="flex items-center gap-3">
         <Shield className="w-8 h-8 text-blue-600" />
         <h1 className="text-3xl font-bold text-gray-900">Compliance Policies</h1>
       </div>
       
-      {/* 브레드크럼 */}
       <div className="flex items-center gap-2 text-sm text-gray-600">
         <button 
           onClick={() => {
             setSelectedFramework(null);
             setRequirements([]);
-            setMappingDetail(null);
+            closeSidePanel();
           }}
           className="hover:text-blue-600"
         >
@@ -94,26 +241,12 @@ const Policies2 = () => {
         {selectedFramework && (
           <>
             <ChevronRight className="w-4 h-4" />
-            <button 
-              onClick={() => {
-                setMappingDetail(null);
-                setSelectedRequirement(null);
-              }}
-              className="hover:text-blue-600"
-            >
-              {selectedFramework}
-            </button>
-          </>
-        )}
-        {selectedRequirement && (
-          <>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-900">Requirement #{selectedRequirement}</span>
+            <span className="text-gray-900">{selectedFramework}</span>
           </>
         )}
       </div>
 
-      {loading && (
+      {loading && !sidePanelOpen && (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
@@ -125,7 +258,6 @@ const Policies2 = () => {
         </div>
       )}
 
-      {/* 1단계: 프레임워크 목록 */}
       {!selectedFramework && !loading && (
         <>
           {frameworks.length === 0 && !error ? (
@@ -137,47 +269,65 @@ const Policies2 = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {frameworks.map((fw) => (
-            <div
-              key={fw.framework}
-              onClick={() => fetchRequirements(fw.framework)}
-              className="bg-white rounded-lg shadow-sm border p-6 cursor-pointer hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Shield className="w-6 h-6 text-blue-600" />
+                <div
+                  key={fw.framework}
+                  onClick={() => fetchRequirements(fw.framework)}
+                  className="bg-white rounded-lg shadow-sm border p-6 cursor-pointer hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center overflow-hidden">
+                        <img 
+                          src={getFrameworkLogo(fw.framework)} 
+                          alt={`${fw.framework} logo`}
+                          className="w-full h-full object-contain p-1"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'block';
+                          }}
+                        />
+                        <Shield className="w-6 h-6 text-blue-600" style={{display: 'none'}} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{fw.framework}</h3>
+                        <p className="text-sm text-gray-500">Compliance Framework</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{fw.framework}</h3>
-                    <p className="text-sm text-gray-500">Compliance Framework</p>
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <span className="text-2xl font-bold text-gray-900">{fw.count}</span>
+                    <span className="text-sm text-gray-500">Requirements</span>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <span className="text-2xl font-bold text-gray-900">{fw.count}</span>
-                <span className="text-sm text-gray-500">Requirements</span>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
           )}
         </>
       )}
 
-      {/* 2단계: 요구사항 목록 */}
-      {selectedFramework && !mappingDetail && !loading && (
-        <div className="bg-white rounded-lg shadow-sm border">
+      {selectedFramework && !loading && (
+        <div className={`bg-white rounded-lg shadow-sm border transition-all ${sidePanelOpen ? 'mr-[50%]' : ''}`}>
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">{selectedFramework} Requirements</h2>
-              <span className="text-sm text-gray-500">{requirements.length} 항목</span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-500">{requirements.length} 항목</span>
+                <button
+                  onClick={() => auditAllFramework(selectedFramework)}
+                  disabled={auditing}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  <Play className="w-4 h-4" />
+                  {auditing ? '감사 중...' : '전체 감사'}
+                </button>
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                     ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -189,39 +339,137 @@ const Policies2 = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     매핑 상태
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     액션
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white">
                 {requirements.map((req) => (
-                  <tr 
-                    key={req.id}
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => fetchMappingDetail(selectedFramework, req.id)}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {req.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {req.item_code || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {req.title}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        {getMappingStatusIcon(req.mapping_status)}
-                        <span className="text-sm text-gray-600">{req.mapping_status || 'Not Mapped'}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button className="text-blue-600 hover:text-blue-800">
-                        상세보기
-                      </button>
-                    </td>
-                  </tr>
+                  <React.Fragment key={req.id}>
+                    <tr className="hover:bg-gray-50 border-b border-gray-200">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="flex items-center gap-2">
+                          {req.audit_result && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpand(`req-${req.id}`);
+                              }}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              {expandedItems[`req-${req.id}`] ? (
+                                <ChevronUp className="w-4 h-4" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                          <span>{req.id}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {req.item_code || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <span>{req.title}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getMappingStatusBadge(req.mapping_status)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => fetchMappingDetail(selectedFramework, req.id)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            상세보기
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              auditRequirement(selectedFramework, req.id);
+                            }}
+                            disabled={auditing}
+                            className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                          >
+                            <Play className="w-3 h-3" />
+                            감사
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    
+                    {expandedItems[`req-${req.id}`] && req.audit_result && (
+                      <tr className="bg-gray-50">
+                        <td colSpan="5" className="px-6 py-4">
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-semibold text-gray-700">감사 결과 상세</h4>
+                              {req.audit_result.summary && (
+                                <div className="flex items-center gap-3 text-xs">
+                                  <span className="text-blue-600">준수: {req.audit_result.summary.COMPLIANT || 0}</span>
+                                  <span className="text-red-600">미준수: {req.audit_result.summary.NON_COMPLIANT || 0}</span>
+                                  <span className="text-gray-500">건너뜀: {req.audit_result.summary.SKIPPED || 0}</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {req.audit_result.results && req.audit_result.results.length > 0 ? (
+                              <div className="space-y-3">
+                                {req.audit_result.results.map((result, idx) => (
+                                  <div key={idx} className="bg-white rounded border border-gray-200 overflow-hidden">
+                                    <div className="bg-gray-100 px-4 py-2 flex items-center justify-between">
+                                      <span className="text-xs font-medium text-gray-700">
+                                        {result.mapping_code}
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        {getStatusIcon(result.status)}
+                                        <span className="text-xs font-medium">{result.status}</span>
+                                      </div>
+                                    </div>
+                                    
+                                    {result.evaluations && result.evaluations.length > 0 && (
+                                      <div className="p-3 space-y-2">
+                                        {result.evaluations.map((evaluation, evalIdx) => (
+                                          <div key={evalIdx} className="text-xs space-y-1">
+                                            <div className="flex items-start justify-between">
+                                              <div className="flex-1">
+                                                <div className="font-medium text-gray-700">{eval.service}</div>
+                                                {eval.resource_id && (
+                                                  <div className="text-gray-600">리소스: {eval.resource_id}</div>
+                                                )}
+                                                <div className="text-gray-500 mt-1">{eval.decision}</div>
+                                              </div>
+                                              {getStatusIcon(eval.status)}
+                                            </div>
+                                            
+                                            {eval.extra?.error && (
+                                              <div className="text-red-600 text-xs mt-1 p-2 bg-red-50 rounded">
+                                                {eval.extra.error}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    
+                                    {result.reason && (
+                                      <div className="px-4 py-2 bg-yellow-50 text-xs text-yellow-800">
+                                        {result.reason}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500">감사 결과가 없습니다.</p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -229,114 +477,124 @@ const Policies2 = () => {
         </div>
       )}
 
-      {/* 3단계: 매핑 상세 정보 */}
-      {mappingDetail && !loading && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              {mappingDetail.requirement.title}
-            </h2>
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <span>ID: {mappingDetail.requirement.id}</span>
-              <span>코드: {mappingDetail.requirement.item_code}</span>
-              <div className="flex items-center gap-2">
-                {getMappingStatusIcon(mappingDetail.requirement.mapping_status)}
-                <span>{mappingDetail.requirement.mapping_status}</span>
+      {sidePanelOpen && mappingDetail && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-30 z-40"
+            onClick={closeSidePanel}
+          ></div>
+          
+          <div className="fixed right-0 top-0 h-full w-1/2 bg-white shadow-2xl z-50 overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {mappingDetail.requirement.title}
+                </h2>
+                <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
+                  <span>ID: {mappingDetail.requirement.id}</span>
+                  <span>코드: {mappingDetail.requirement.item_code}</span>
+                  {getMappingStatusBadge(mappingDetail.requirement.mapping_status)}
+                </div>
+              </div>
+              <button
+                onClick={closeSidePanel}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                매핑 정보 ({mappingDetail.mappings.length}건)
+              </h3>
+              
+              <div className="space-y-6">
+                {mappingDetail.mappings.map((mapping, idx) => (
+                  <div key={idx} className="bg-white rounded-lg shadow-sm border p-6">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">기본 정보</h4>
+                        <dl className="space-y-2">
+                          <div>
+                            <dt className="text-xs text-gray-500">코드</dt>
+                            <dd className="text-sm text-gray-900">{mapping.code}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-gray-500">카테고리</dt>
+                            <dd className="text-sm text-gray-900">{mapping.category || '-'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-gray-500">서비스</dt>
+                            <dd className="text-sm text-gray-900">{mapping.service || '-'}</dd>
+                          </div>
+                        </dl>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">점검 방법</h4>
+                        <dl className="space-y-2">
+                          <div>
+                            <dt className="text-xs text-gray-500">점검 방식</dt>
+                            <dd className="text-sm text-gray-900">{mapping.check_how || '-'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-gray-500">콘솔 경로</dt>
+                            <dd className="text-sm text-gray-900 break-all">{mapping.console_path || '-'}</dd>
+                          </div>
+                          {mapping.cli_cmd && (
+                            <div>
+                              <dt className="text-xs text-gray-500">CLI 명령어</dt>
+                              <dd className="text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded break-all">
+                                {mapping.cli_cmd}
+                              </dd>
+                            </div>
+                          )}
+                        </dl>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">판단 기준</h4>
+                        <dl className="space-y-2">
+                          <div>
+                            <dt className="text-xs text-gray-500">반환 필드</dt>
+                            <dd className="text-sm text-gray-900">{mapping.return_field || '-'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-gray-500">준수 값</dt>
+                            <dd className="text-sm text-green-600">{mapping.compliant_value || '-'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-gray-500">미준수 값</dt>
+                            <dd className="text-sm text-red-600">{mapping.non_compliant_value || '-'}</dd>
+                          </div>
+                        </dl>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">수정 방법</h4>
+                        <dl className="space-y-2">
+                          <div>
+                            <dt className="text-xs text-gray-500">콘솔 수정</dt>
+                            <dd className="text-sm text-gray-900 break-all">{mapping.console_fix || '-'}</dd>
+                          </div>
+                          {mapping.cli_fix_cmd && (
+                            <div>
+                              <dt className="text-xs text-gray-500">CLI 수정 명령어</dt>
+                              <dd className="text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded break-all">
+                                {mapping.cli_fix_cmd}
+                              </dd>
+                            </div>
+                          )}
+                        </dl>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-
-          <div className="bg-white rounded-lg shadow-sm border">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
-                매핑 정보 ({mappingDetail.mappings.length}건)
-              </h3>
-            </div>
-            <div className="divide-y divide-gray-200">
-              {mappingDetail.mappings.map((mapping, idx) => (
-                <div key={idx} className="p-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-3">기본 정보</h4>
-                      <dl className="space-y-2">
-                        <div>
-                          <dt className="text-xs text-gray-500">코드</dt>
-                          <dd className="text-sm text-gray-900">{mapping.code}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs text-gray-500">카테고리</dt>
-                          <dd className="text-sm text-gray-900">{mapping.category || '-'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs text-gray-500">서비스</dt>
-                          <dd className="text-sm text-gray-900">{mapping.service || '-'}</dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-3">점검 방법</h4>
-                      <dl className="space-y-2">
-                        <div>
-                          <dt className="text-xs text-gray-500">점검 방식</dt>
-                          <dd className="text-sm text-gray-900">{mapping.check_how || '-'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs text-gray-500">콘솔 경로</dt>
-                          <dd className="text-sm text-gray-900 break-all">{mapping.console_path || '-'}</dd>
-                        </div>
-                        {mapping.cli_cmd && (
-                          <div>
-                            <dt className="text-xs text-gray-500">CLI 명령어</dt>
-                            <dd className="text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded break-all">
-                              {mapping.cli_cmd}
-                            </dd>
-                          </div>
-                        )}
-                      </dl>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-3">판단 기준</h4>
-                      <dl className="space-y-2">
-                        <div>
-                          <dt className="text-xs text-gray-500">반환 필드</dt>
-                          <dd className="text-sm text-gray-900">{mapping.return_field || '-'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs text-gray-500">준수 값</dt>
-                          <dd className="text-sm text-green-600">{mapping.compliant_value || '-'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs text-gray-500">미준수 값</dt>
-                          <dd className="text-sm text-red-600">{mapping.non_compliant_value || '-'}</dd>
-                        </div>
-                      </dl>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-3">수정 방법</h4>
-                      <dl className="space-y-2">
-                        <div>
-                          <dt className="text-xs text-gray-500">콘솔 수정</dt>
-                          <dd className="text-sm text-gray-900 break-all">{mapping.console_fix || '-'}</dd>
-                        </div>
-                        {mapping.cli_fix_cmd && (
-                          <div>
-                            <dt className="text-xs text-gray-500">CLI 수정 명령어</dt>
-                            <dd className="text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded break-all">
-                              {mapping.cli_fix_cmd}
-                            </dd>
-                          </div>
-                        )}
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        </>
       )}
     </div>
   );
