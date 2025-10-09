@@ -171,21 +171,54 @@ const Lineage = () => {
   // -------------------------
   // dagre layout
   // -------------------------
-  const getLayoutedElements = (nodesArr, edgesArr) => {
+  const getLayoutedElements = (nodesArr, edgesArr, graphData) => {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     dagreGraph.setGraph({
       rankdir: 'LR',
       nodesep: 50,
-      ranksep: 100,
+      ranksep: 120,
+      ranker: 'network-simplex',
+      align: 'UL',
     });
 
+    // 노드 등록
     nodesArr.forEach((n) => {
-      dagreGraph.setNode(n.id, { width: 180, height: 80 });
+      dagreGraph.setNode(n.id, { 
+        width: 180, 
+        height: 80,
+      });
     });
 
+    // 엣지 타입 분류 및 가중치 부여
     edgesArr.forEach((e) => {
-      dagreGraph.setEdge(e.source, e.target, { minlen: 1 });
+      let weight = 1;
+      let minlen = 1;
+      
+      // 메인 플로우 (Processing → Training → Model → RegisterModel) 강화
+      if (
+        (e.source.includes('Processing') && e.target.includes('Training')) ||
+        (e.source.includes('Training') && e.target.includes('Model')) ||
+        (e.source.includes('Model') && e.target.includes('Register'))
+      ) {
+        weight = 10;  // 메인 경로 높은 가중치
+        minlen = 1;
+      }
+      // Condition 엣지는 낮은 우선순위
+      else if (e.label === 'condition' || e.source.includes('Condition') || e.target.includes('Condition')) {
+        weight = 0.1;
+        minlen = 1;
+      }
+      // 데이터 엣지 (초록색)
+      else if (e.style?.stroke === '#10b981') {
+        weight = 5;
+        minlen = 1;
+      }
+      
+      dagreGraph.setEdge(e.source, e.target, { 
+        minlen: minlen,
+        weight: weight
+      });
     });
 
     try {
@@ -205,6 +238,7 @@ const Lineage = () => {
       };
     });
   };
+
 
   // -------------------------
   // convert functions
@@ -253,23 +287,40 @@ const Lineage = () => {
       return '';
     };
 
+    const addEdge = (source, target, config = {}) => {
+      const edgeId = `${source}-${target}`;
+      if (edgeSet.has(edgeId)) return false;
+      
+      edgesOut.push({
+        id: `e${edgesOut.length}`,
+        source,
+        target,
+        animated: config.animated !== false,
+        style: config.style || { stroke: '#6366f1', strokeWidth: 2 },
+        type: 'smoothstep',
+        label: config.label || '',
+        labelStyle: config.labelStyle || { fontSize: 10, fill: '#6b7280' },
+      });
+      
+      edgeSet.add(edgeId);
+      return true;
+    };
+
+    // 모든 엣지 수집 (API + inputs/outputs)
+    const allEdges = [];
+    
+    // 1. API edges
     graphData.edges.forEach((edge) => {
-      const edgeId = `${edge.from}-${edge.to}`;
-      if (!edgeSet.has(edgeId)) {
-        edgesOut.push({
-          id: `e${edgesOut.length}`,
-          source: edge.from,
-          target: edge.to,
-          animated: true,
-          style: { stroke: '#6366f1', strokeWidth: 2 },
-          type: 'smoothstep',
-          label: getLabelString(edge.label),
-          labelStyle: { fontSize: 10, fill: '#6b7280' },
-        });
-        edgeSet.add(edgeId);
-      }
+      allEdges.push({
+        source: edge.from,
+        target: edge.to,
+        label: getLabelString(edge.label),
+        style: { stroke: '#6366f1', strokeWidth: 2 },
+        type: 'api'
+      });
     });
 
+    // 2. inputs/outputs edges
     if (graphData.nodes) {
       graphData.nodes.forEach(targetNode => {
         if (!targetNode.inputs || targetNode.inputs.length === 0) return;
@@ -284,54 +335,68 @@ const Lineage = () => {
             const matchingOutput = sourceNode.outputs.find(output => output.uri === input.uri);
 
             if (matchingOutput) {
-              const edgeId = `${sourceNode.id}-${targetNode.id}`;
-              if (!edgeSet.has(edgeId)) {
-                edgesOut.push({
-                  id: `e${edgesOut.length}`,
-                  source: sourceNode.id,
-                  target: targetNode.id,
-                  animated: true,
-                  style: { stroke: '#10b981', strokeWidth: 2 },
-                  type: 'smoothstep',
-                  label: safeValue(input.name) || safeValue(matchingOutput.name) || '',
-                  labelStyle: { fontSize: 9, fill: '#059669', fontWeight: 500 },
-                });
-                edgeSet.add(edgeId);
-              }
+              allEdges.push({
+                source: sourceNode.id,
+                target: targetNode.id,
+                label: safeValue(input.name) || '',
+                style: { stroke: '#10b981', strokeWidth: 2 },
+                labelStyle: { fontSize: 9, fill: '#059669', fontWeight: 500 },
+                type: 'data'
+              });
             }
           });
         });
       });
-
-      graphData.nodes.forEach(node => {
-        if (node.type === 'Condition') {
-          const lastNode = graphData.nodes
-            .filter(n => n.type === 'Processing' || n.type === 'Training')
-            .sort((a, b) => {
-              const aTime = new Date(a.run?.endTime || 0);
-              const bTime = new Date(b.run?.endTime || 0);
-              return bTime - aTime;
-            })[0];
-
-          if (lastNode) {
-            const edgeId = `${lastNode.id}-${node.id}`;
-            if (!edgeSet.has(edgeId)) {
-              edgesOut.push({
-                id: `e${edgesOut.length}`,
-                source: lastNode.id,
-                target: node.id,
-                animated: true,
-                style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '5,5' },
-                type: 'smoothstep',
-                label: 'condition',
-                labelStyle: { fontSize: 9, fill: '#f59e0b', fontWeight: 500 },
-              });
-              edgeSet.add(edgeId);
-            }
-          }
-        }
-      });
     }
+
+    // 간접 경로 찾기 (BFS)
+    const hasPath = (from, to, excludeEdge) => {
+      if (from === to) return false;
+      
+      const visited = new Set();
+      const queue = [from];
+      
+      while (queue.length > 0) {
+        const current = queue.shift();
+        
+        if (current === to) return true;
+        if (visited.has(current)) continue;
+        visited.add(current);
+        
+        allEdges.forEach(edge => {
+          // 체크 중인 엣지는 제외
+          if (excludeEdge && edge.source === excludeEdge.source && edge.target === excludeEdge.target) {
+            return;
+          }
+          
+          if (edge.source === current && !visited.has(edge.target)) {
+            queue.push(edge.target);
+          }
+        });
+      }
+      
+      return false;
+    };
+
+    // 직접 연결만 남기기 (간접 경로가 있으면 제거)
+    console.log('=== 엣지 필터링 ===');
+    allEdges.forEach(edge => {
+      const hasIndirectPath = hasPath(edge.source, edge.target, edge);
+      
+      if (hasIndirectPath) {
+        console.log(`❌ 제거 (간접 경로 존재): ${edge.source} → ${edge.target}`);
+      } else {
+        console.log(`✅ 추가: ${edge.source} → ${edge.target}`);
+        addEdge(edge.source, edge.target, {
+          label: edge.label,
+          style: edge.style,
+          labelStyle: edge.labelStyle,
+        });
+      }
+    });
+
+    console.log('=== 최종 엣지 ===', edgesOut.length);
+    edgesOut.forEach(e => console.log(`${e.source} → ${e.target}`));
 
     return edgesOut;
   };
@@ -349,8 +414,11 @@ const Lineage = () => {
         const convertedNodes = convertToNodes(data.graph);
         const convertedEdges = convertToEdges(data.graph);
 
-        const filteredEdges = convertedEdges.filter(edge => !(edge.source === 'Preprocess' && edge.target === 'Evaluate'));
+        const filteredEdges = convertedEdges.filter(edge => 
+          !(edge.source === 'Preprocess' && edge.target === 'Evaluate')
+        );
 
+        // graphData 전달
         const layoutedNodes = getLayoutedElements(convertedNodes, filteredEdges, data.graph);
 
         setNodes(layoutedNodes);
