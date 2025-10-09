@@ -164,48 +164,48 @@ const Policies2 = () => {
     }
   };
 
-    const getMappingStatusBadge = (status) => {
-        if (status === 'COMPLIANT' || status === 'Compliant') {
-            return (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                준수
-            </span>
-            );
-        }
-        if (status === 'NON_COMPLIANT' || status === 'Non-Compliant') {
-            return (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                미준수
-            </span>
-            );
-        }
-        if (status === 'SKIPPED' || status === 'Skipped') {
-            return (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                건너뜀
-            </span>
-            );
-        }
-        // 기본값: 감사 안한 상태
-        return (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-            -
-            </span>
-        );
-        };
-    const getStatusIcon = (status) => {
-        if (status === 'COMPLIANT') {
-            return <CheckCircle className="w-4 h-4 text-blue-600" />;
-        } else if (status === 'NON_COMPLIANT') {
-            return <XCircle className="w-4 h-4 text-red-600" />;
-        } else if (status === 'SKIPPED') {
-            return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-        } else if (status === 'ERROR') {
-            return <XCircle className="w-4 h-4 text-red-600" />;
-        } else {
-            return <AlertCircle className="w-4 h-4 text-gray-400" />;
-        }
-    };
+  const getMappingStatusBadge = (status) => {
+    if (status === 'COMPLIANT' || status === 'Compliant') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          준수
+        </span>
+      );
+    }
+    if (status === 'NON_COMPLIANT' || status === 'Non-Compliant') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          미준수
+        </span>
+      );
+    }
+    if (status === 'SKIPPED' || status === 'Skipped') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          건너뜀
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+        -
+      </span>
+    );
+  };
+
+  const getStatusIcon = (status) => {
+    if (status === 'COMPLIANT') {
+      return <CheckCircle className="w-4 h-4 text-blue-600" />;
+    } else if (status === 'NON_COMPLIANT') {
+      return <XCircle className="w-4 h-4 text-red-600" />;
+    } else if (status === 'SKIPPED') {
+      return <AlertCircle className="w-4 h-4 text-yellow-500" />;
+    } else if (status === 'ERROR') {
+      return <XCircle className="w-4 h-4 text-red-600" />;
+    } else {
+      return <AlertCircle className="w-4 h-4 text-gray-400" />;
+    }
+  };
 
   const toggleExpand = (mappingCode) => {
     setExpandedItems(prev => ({
@@ -339,7 +339,7 @@ const Policies2 = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     매핑 상태
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     액션
                   </th>
                 </tr>
@@ -377,8 +377,8 @@ const Policies2 = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getMappingStatusBadge(req.mapping_status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex items-center gap-8">
                           <button
                             onClick={() => fetchMappingDetail(selectedFramework, req.id)}
                             className="text-blue-600 hover:text-blue-800"
@@ -435,18 +435,18 @@ const Policies2 = () => {
                                           <div key={evalIdx} className="text-xs space-y-1">
                                             <div className="flex items-start justify-between">
                                               <div className="flex-1">
-                                                <div className="font-medium text-gray-700">{eval.service}</div>
-                                                {eval.resource_id && (
-                                                  <div className="text-gray-600">리소스: {eval.resource_id}</div>
+                                                <div className="font-medium text-gray-700">{evaluation.service}</div>
+                                                {evaluation.resource_id && (
+                                                  <div className="text-gray-600">리소스: {evaluation.resource_id}</div>
                                                 )}
-                                                <div className="text-gray-500 mt-1">{eval.decision}</div>
+                                                <div className="text-gray-500 mt-1">{evaluation.decision}</div>
                                               </div>
-                                              {getStatusIcon(eval.status)}
+                                              {getStatusIcon(evaluation.status)}
                                             </div>
                                             
-                                            {eval.extra?.error && (
+                                            {evaluation.extra?.error && (
                                               <div className="text-red-600 text-xs mt-1 p-2 bg-red-50 rounded">
-                                                {eval.extra.error}
+                                                {evaluation.extra.error}
                                               </div>
                                             )}
                                           </div>
