@@ -7,7 +7,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import dagre from 'dagre';
-import { X, Database, Clock, CheckCircle, XCircle, Loader, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { X, Database, Clock, CheckCircle, XCircle, Loader, RefreshCw, ChevronDown } from 'lucide-react';
 import { useLineage } from '../hooks/useLineage';
 
 const Lineage = () => {
@@ -17,6 +17,7 @@ const Lineage = () => {
     error, 
     loadLineage,
     pipelines = [],
+    domains = [],
     loadingPipelines,
     loadPipelines
   } = useLineage();
@@ -29,6 +30,73 @@ const Lineage = () => {
   const [selectedPipeline, setSelectedPipeline] = useState(null);
   const [showPipelineList, setShowPipelineList] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showDomainDropdown, setShowDomainDropdown] = useState(false); 
+  const [selectedDomain, setSelectedDomain] = useState({ id: '__all__', name: '전체 도메인', region: 'ap-northeast-2' }); // 초기값 설정
+
+  // -------------------------
+  // 파이프라인에서 실제 사용되는 도메인 ID 추출
+  // -------------------------
+  const getActualDomainsFromPipelines = () => {
+    const domainSet = new Set();
+    
+    pipelines.forEach(p => {
+      if (p.tags && p.tags['sagemaker:domain-arn']) {
+        const match = p.tags['sagemaker:domain-arn'].match(/domain\/(d-[a-z0-9]+)/);
+        if (match) {
+          domainSet.add(match[1]);
+        }
+      }
+    });
+    
+    return Array.from(domainSet);
+  };
+
+  const actualDomainIds = getActualDomainsFromPipelines();
+
+  // -------------------------
+  // 각 도메인별 파이프라인 개수 계산
+  // -------------------------
+  const getDomainPipelineCount = (domainId) => {
+    if (domainId === '__untagged__') {
+      return pipelines.filter(p => {
+        const hasDomainTag = p.tags && p.tags['sagemaker:domain-arn'];
+        const hasMatchedDomain = p.matchedDomain;
+        return !hasDomainTag && !hasMatchedDomain;
+      }).length;
+    }
+    
+    return pipelines.filter(p => {
+      if (p.tags && p.tags['sagemaker:domain-arn']) {
+        const domainArn = p.tags['sagemaker:domain-arn'];
+        return domainArn.includes(domainId);
+      }
+      return false;
+    }).length;
+  };
+
+  // -------------------------
+  // 도메인으로 필터링된 파이프라인
+  // -------------------------
+  const filteredPipelines = selectedDomain 
+    ? selectedDomain.id === '__all__'
+      ? pipelines
+      : selectedDomain.id === '__untagged__'
+        ? pipelines.filter(p => {
+            const hasDomainTag = p.tags && p.tags['sagemaker:domain-arn'];
+            const hasMatchedDomain = p.matchedDomain;
+            return !hasDomainTag && !hasMatchedDomain;
+          })
+        : pipelines.filter(p => {
+            if (p.tags && p.tags['sagemaker:domain-arn']) {
+              const domainArn = p.tags['sagemaker:domain-arn'];
+              return domainArn.includes(selectedDomain.id);
+            }
+            if (p.matchedDomain) {
+              return p.matchedDomain === selectedDomain.name;
+            }
+            return false;
+          })
+    : pipelines;
 
   // -------------------------
   // 안전 렌더링 헬퍼들
@@ -50,7 +118,6 @@ const Lineage = () => {
 
   const formatDateSafe = (val) => {
     if (val == null) return 'N/A';
-    // If val is object that holds Get -> unwrap
     const unwrapped = (typeof val === 'object' && 'Get' in val) ? val.Get : val;
     try {
       const d = new Date(unwrapped);
@@ -104,41 +171,26 @@ const Lineage = () => {
   // -------------------------
   // dagre layout
   // -------------------------
-  const getLayoutedElements = (nodesArr, edgesArr, graphData) => {
+  const getLayoutedElements = (nodesArr, edgesArr) => {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
-    dagreGraph.setGraph({ rankdir: 'LR', nodesep: 50, ranksep: 80, ranker: 'tight-tree' });
-
-    const nodeLevels = {};
-    if (graphData && graphData.nodes) {
-      const sortedNodes = [...graphData.nodes].sort((a, b) => {
-        const aTime = new Date(a.run?.startTime || 0);
-        const bTime = new Date(b.run?.startTime || 0);
-        return aTime - bTime;
-      });
-
-      let currentLevel = 0;
-      let lastTime = null;
-
-      sortedNodes.forEach(node => {
-        const startTime = new Date(node.run?.startTime || 0).getTime();
-        if (lastTime && startTime - lastTime > 60000) currentLevel++;
-        nodeLevels[node.id] = currentLevel;
-        lastTime = startTime;
-      });
-    }
-
-    nodesArr.forEach((n) => {
-      dagreGraph.setNode(n.id, { width: 180, height: 80, rank: nodeLevels[n.id] });
+    dagreGraph.setGraph({
+      rankdir: 'LR',
+      nodesep: 50,
+      ranksep: 100,
     });
 
-    const filteredEdges = edgesArr.filter(edge => !(edge.source === 'Preprocess' && edge.target === 'Evaluate'));
-    filteredEdges.forEach(e => dagreGraph.setEdge(e.source, e.target));
+    nodesArr.forEach((n) => {
+      dagreGraph.setNode(n.id, { width: 180, height: 80 });
+    });
+
+    edgesArr.forEach((e) => {
+      dagreGraph.setEdge(e.source, e.target, { minlen: 1 });
+    });
 
     try {
       dagre.layout(dagreGraph);
     } catch (err) {
-      // layout 실패해도 그냥 넘어감
       console.warn('dagre.layout failed', err);
     }
 
@@ -354,7 +406,6 @@ const Lineage = () => {
       setShowPanel(true);
     }
 
-    // highlight downstream/upstream
     const findDownstreamNodes = (startNodeId, visited = new Set()) => {
       if (visited.has(startNodeId)) return visited;
       visited.add(startNodeId);
@@ -469,7 +520,6 @@ const Lineage = () => {
   const formatDuration = (seconds) => {
     if (seconds == null || seconds === 'N/A') return 'N/A';
     if (typeof seconds === 'object' && 'Get' in seconds) {
-      // unwrap
       const val = seconds.Get;
       if (typeof val === 'number') seconds = val;
       else return safeValue(seconds);
@@ -506,9 +556,134 @@ const Lineage = () => {
           </div>
         )}
 
-        {/* 드롭다운 선택 */}
+        {/* 도메인 선택 */}
+        <div className="space-y-2 mb-4">
+          <label className="text-sm font-medium text-gray-700">도메인 필터</label>
+          <div className="relative">
+            <button
+              onClick={() => setShowDomainDropdown(!showDomainDropdown)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white flex items-center justify-between hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <span className="text-gray-900">
+                {selectedDomain 
+                  ? `${safeValue(selectedDomain.name)} (${filteredPipelines.length}개)`
+                  : '전체 도메인 (3개)'}
+              </span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showDomainDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showDomainDropdown && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {/* 전체 */}
+                <div className="border-b border-gray-200">
+                  <button
+                    onClick={() => {
+                      setSelectedDomain({ id: '__all__', name: '전체 도메인', region: 'ap-northeast-2' });
+                      setShowDomainDropdown(false);
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-50"
+                  >
+                    <div className="font-medium text-sm text-gray-900">전체 도메인 ({pipelines.length}개)</div>
+                  </button>
+                </div>
+
+                {/* 파싱된 도메인 */}
+                {domains.length > 0 && (
+                  <div className="border-b border-gray-200">
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
+                      파싱된 도메인 (Catalog)
+                    </div>
+                    {domains.map((domain, index) => {
+                      const count = getDomainPipelineCount(domain.id);
+                      return (
+                        <button
+                          key={`catalog-${index}`}
+                          onClick={() => {
+                            setSelectedDomain(domain);
+                            setShowDomainDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-50"
+                        >
+                          <div className="font-medium text-sm text-gray-900">{safeValue(domain.name)}</div>
+                          <div className="text-xs text-gray-500">{count}개</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* 파이프라인이 속한 도메인 */}
+                {(() => {
+                  const orphanDomains = actualDomainIds.filter(
+                    domainId => !domains.find(d => d.id === domainId)
+                  );
+                  
+                  if (orphanDomains.length > 0) {
+                    return (
+                      <div className="border-b border-gray-200">
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
+                          파이프라인이 속한 도메인
+                        </div>
+                        {orphanDomains.map((domainId, index) => {
+                          const count = getDomainPipelineCount(domainId);
+                          return (
+                            <button
+                              key={`actual-${index}`}
+                              onClick={() => {
+                                const domain = { id: domainId, name: domainId, region: 'ap-northeast-2' };
+                                setSelectedDomain(domain);
+                                setShowDomainDropdown(false);
+                              }}
+                              className="w-full px-4 py-2 text-left hover:bg-gray-50"
+                            >
+                              <div className="font-medium text-sm text-gray-900">{domainId}</div>
+                              <div className="text-xs text-gray-500">{count}개</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+                })()}
+
+                {/* 기타 */}
+                {(() => {
+                  const untaggedCount = getDomainPipelineCount('__untagged__');
+                  if (untaggedCount > 0) {
+                    return (
+                      <div>
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
+                          기타
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedDomain({ id: '__untagged__', name: '도메인 미지정', region: 'ap-northeast-2' });
+                            setShowDomainDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-50"
+                        >
+                          <div className="font-medium text-sm text-gray-900">도메인 미지정</div>
+                          <div className="text-xs text-gray-500">{untaggedCount}개</div>
+                        </button>
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 파이프라인 선택 */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">파이프라인 선택</label>
+          <label className="text-sm font-medium text-gray-700">
+            파이프라인 선택 
+            {selectedDomain && (
+              <span className="text-xs text-gray-500 ml-2">
+                ({filteredPipelines.length}개)
+              </span>
+            )}
+          </label>
           {loadingPipelines ? (
             <div className="text-center py-4 text-gray-600">파이프라인 목록을 불러오는 중...</div>
           ) : (
@@ -525,36 +700,56 @@ const Lineage = () => {
 
               {showDropdown && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {pipelines.map((pipeline, index) => (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        handlePipelineSelect(pipeline);
-                        setShowDropdown(false);
-                      }}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                    >
-                      <div className="font-medium text-sm text-gray-900">{safeValue(pipeline.name)}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {safeValue(pipeline.region)} - {formatDateSafe(pipeline.lastModifiedTime)}
-                      </div>
-                    </button>
-                  ))}
+                  {filteredPipelines.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                      {selectedDomain ? '선택한 도메인에 파이프라인이 없습니다' : '파이프라인이 없습니다'}
+                    </div>
+                  ) : (
+                    filteredPipelines.map((pipeline, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          handlePipelineSelect(pipeline);
+                          setShowDropdown(false);
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="font-medium text-sm text-gray-900">{safeValue(pipeline.name)}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {safeValue(pipeline.region)} - {formatDateSafe(pipeline.lastModifiedTime)}
+                        </div>
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* 선택된 파이프라인 정보 */}
-        {selectedPipeline && (
-          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="text-sm font-semibold text-blue-900">
-              {safeValue(selectedPipeline.name)}
-            </div>
-            <div className="text-xs text-blue-700 mt-1">
-              Region: {safeValue(selectedPipeline.region)} | Last Modified: {formatDateSafe(selectedPipeline.lastModifiedTime)}
-            </div>
+        {/* 선택된 도메인/파이프라인 정보 */}
+        {(selectedDomain || selectedPipeline) && (
+          <div className="mt-3 space-y-2">
+            {selectedDomain && (
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <div className="text-sm font-semibold text-purple-900">
+                  Domain: {safeValue(selectedDomain.name)}
+                </div>
+                <div className="text-xs text-purple-700 mt-1">
+                  {safeValue(selectedDomain.id)}
+                </div>
+              </div>
+            )}
+            {selectedPipeline && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm font-semibold text-blue-900">
+                  Pipeline: {safeValue(selectedPipeline.name)}
+                </div>
+                <div className="text-xs text-blue-700 mt-1">
+                  Region: {safeValue(selectedPipeline.region)} | Last Modified: {formatDateSafe(selectedPipeline.lastModifiedTime)}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

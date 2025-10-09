@@ -7,6 +7,7 @@ export const useLineage = () => {
   const [error, setError] = useState(null);
   const [lineageData, setLineageData] = useState(null);
   const [pipelines, setPipelines] = useState([]);
+  const [domains, setDomains] = useState([]);
   const [loadingPipelines, setLoadingPipelines] = useState(false);
 
   // 파이프라인 목록 조회 (Catalog 사용)
@@ -26,6 +27,23 @@ export const useLineage = () => {
       
       const data = await response.json();
       console.log('API Response:', data);
+      
+      // 도메인 목록 추출
+      const domainList = [];
+      if (data.regions && Array.isArray(data.regions)) {
+        data.regions.forEach(regionData => {
+          if (regionData.domains && Array.isArray(regionData.domains)) {
+            regionData.domains.forEach(domain => {
+              domainList.push({
+                id: domain.DomainId,
+                name: domain.DomainName,
+                region: regionData.region,
+              });
+            });
+          }
+        });
+      }
+      setDomains(domainList);
       
       // 파이프라인 목록 추출
       const pipelineList = [];
@@ -47,6 +65,7 @@ export const useLineage = () => {
       }
       
       console.log('Extracted pipeline list:', pipelineList);
+      console.log('Extracted domain list:', domainList);
       setPipelines(pipelineList);
       return pipelineList;
     } catch (err) {
@@ -94,6 +113,7 @@ export const useLineage = () => {
     error, 
     loadLineage,
     pipelines,
+    domains,
     loadingPipelines,
     loadPipelines
   };
