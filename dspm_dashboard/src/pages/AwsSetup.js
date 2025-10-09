@@ -206,17 +206,7 @@ const AwsSetup = () => {
         <div className="bg-white rounded-lg p-6 shadow-sm border mb-6">
           <h3 className="text-lg font-semibold mb-4">Step 5: 스캔 서비스 선택</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {availableServices.map((service) => (
-              <label key={service.id} className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={services.includes(service.id)}
-                  onChange={() => toggleService(service.id)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">{service.name}</span>
-              </label>
-            ))}
+            Data Target에서 스캔할 저장소를 선택하세요.
           </div>
         </div>
 

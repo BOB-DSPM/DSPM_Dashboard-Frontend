@@ -31,7 +31,7 @@ const Lineage = () => {
   const [showPipelineList, setShowPipelineList] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showDomainDropdown, setShowDomainDropdown] = useState(false); 
-  const [selectedDomain, setSelectedDomain] = useState({ id: '__all__', name: '전체 도메인', region: 'ap-northeast-2' }); // 초기값 설정
+  const [selectedDomain, setSelectedDomain] = useState({ id: '__all__', name: '전체 도메인', region: 'ap-northeast-2' });
 
   // -------------------------
   // 파이프라인에서 실제 사용되는 도메인 ID 추출
@@ -182,7 +182,6 @@ const Lineage = () => {
       align: 'UL',
     });
 
-    // 노드 등록
     nodesArr.forEach((n) => {
       dagreGraph.setNode(n.id, { 
         width: 180, 
@@ -190,27 +189,21 @@ const Lineage = () => {
       });
     });
 
-    // 엣지 타입 분류 및 가중치 부여
     edgesArr.forEach((e) => {
       let weight = 1;
       let minlen = 1;
       
-      // 메인 플로우 (Processing → Training → Model → RegisterModel) 강화
       if (
         (e.source.includes('Processing') && e.target.includes('Training')) ||
         (e.source.includes('Training') && e.target.includes('Model')) ||
         (e.source.includes('Model') && e.target.includes('Register'))
       ) {
-        weight = 10;  // 메인 경로 높은 가중치
+        weight = 10;
         minlen = 1;
-      }
-      // Condition 엣지는 낮은 우선순위
-      else if (e.label === 'condition' || e.source.includes('Condition') || e.target.includes('Condition')) {
+      } else if (e.label === 'condition' || e.source.includes('Condition') || e.target.includes('Condition')) {
         weight = 0.1;
         minlen = 1;
-      }
-      // 데이터 엣지 (초록색)
-      else if (e.style?.stroke === '#10b981') {
+      } else if (e.style?.stroke === '#10b981') {
         weight = 5;
         minlen = 1;
       }
@@ -238,7 +231,6 @@ const Lineage = () => {
       };
     });
   };
-
 
   // -------------------------
   // convert functions
@@ -272,21 +264,6 @@ const Lineage = () => {
     const edgesOut = [];
     const edgeSet = new Set();
 
-    const getLabelString = (label) => {
-      if (label == null) return '';
-      if (typeof label === 'string') return label;
-      if (typeof label === 'number') return String(label);
-      if (typeof label === 'object') {
-        if ('Get' in label) return safeValue(label.Get);
-        try {
-          return JSON.stringify(label);
-        } catch {
-          return '';
-        }
-      }
-      return '';
-    };
-
     const addEdge = (source, target, config = {}) => {
       const edgeId = `${source}-${target}`;
       if (edgeSet.has(edgeId)) return false;
@@ -298,7 +275,7 @@ const Lineage = () => {
         animated: config.animated !== false,
         style: config.style || { stroke: '#6366f1', strokeWidth: 2 },
         type: 'smoothstep',
-        label: config.label || '',
+        label: '',
         labelStyle: config.labelStyle || { fontSize: 10, fill: '#6b7280' },
       });
       
@@ -306,21 +283,17 @@ const Lineage = () => {
       return true;
     };
 
-    // 모든 엣지 수집 (API + inputs/outputs)
     const allEdges = [];
     
-    // 1. API edges
     graphData.edges.forEach((edge) => {
       allEdges.push({
         source: edge.from,
         target: edge.to,
-        label: '',//getLabelString(edge.label),
         style: { stroke: '#6366f1', strokeWidth: 2 },
         type: 'api'
       });
     });
 
-    // 2. inputs/outputs edges
     if (graphData.nodes) {
       graphData.nodes.forEach(targetNode => {
         if (!targetNode.inputs || targetNode.inputs.length === 0) return;
@@ -338,18 +311,36 @@ const Lineage = () => {
               allEdges.push({
                 source: sourceNode.id,
                 target: targetNode.id,
-                label: '',//safeValue(input.name) || '',
                 style: { stroke: '#10b981', strokeWidth: 2 },
-                labelStyle: { fontSize: 9, fill: '#059669', fontWeight: 500 },
                 type: 'data'
               });
             }
           });
         });
       });
+
+      graphData.nodes.forEach(node => {
+        if (node.type === 'Condition') {
+          const completedNodes = graphData.nodes
+            .filter(n => n.type !== 'Condition' && n.run?.endTime)
+            .sort((a, b) => {
+              const aTime = new Date(a.run?.endTime || 0);
+              const bTime = new Date(b.run?.endTime || 0);
+              return bTime - aTime;
+            });
+
+          if (completedNodes.length > 0) {
+            allEdges.push({
+              source: completedNodes[0].id,
+              target: node.id,
+              style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '5,5' },
+              type: 'condition'
+            });
+          }
+        }
+      });
     }
 
-    // 간접 경로 찾기 (BFS)
     const hasPath = (from, to, excludeEdge) => {
       if (from === to) return false;
       
@@ -364,7 +355,6 @@ const Lineage = () => {
         visited.add(current);
         
         allEdges.forEach(edge => {
-          // 체크 중인 엣지는 제외
           if (excludeEdge && edge.source === excludeEdge.source && edge.target === excludeEdge.target) {
             return;
           }
@@ -378,25 +368,15 @@ const Lineage = () => {
       return false;
     };
 
-    // 직접 연결만 남기기 (간접 경로가 있으면 제거)
-    console.log('=== 엣지 필터링 ===');
     allEdges.forEach(edge => {
       const hasIndirectPath = hasPath(edge.source, edge.target, edge);
       
-      if (hasIndirectPath) {
-        console.log(`❌ 제거 (간접 경로 존재): ${edge.source} → ${edge.target}`);
-      } else {
-        console.log(`✅ 추가: ${edge.source} → ${edge.target}`);
+      if (!hasIndirectPath) {
         addEdge(edge.source, edge.target, {
-          label: edge.label,
           style: edge.style,
-          labelStyle: edge.labelStyle,
         });
       }
     });
-
-    console.log('=== 최종 엣지 ===', edgesOut.length);
-    edgesOut.forEach(e => console.log(`${e.source} → ${e.target}`));
 
     return edgesOut;
   };
@@ -418,7 +398,6 @@ const Lineage = () => {
           !(edge.source === 'Preprocess' && edge.target === 'Evaluate')
         );
 
-        // graphData 전달
         const layoutedNodes = getLayoutedElements(convertedNodes, filteredEdges, data.graph);
 
         setNodes(layoutedNodes);
@@ -642,7 +621,6 @@ const Lineage = () => {
 
             {showDomainDropdown && (
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {/* 전체 */}
                 <div className="border-b border-gray-200">
                   <button
                     onClick={() => {
@@ -655,7 +633,6 @@ const Lineage = () => {
                   </button>
                 </div>
 
-                {/* 파싱된 도메인 */}
                 {domains.length > 0 && (
                   <div className="border-b border-gray-200">
                     <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
@@ -680,7 +657,6 @@ const Lineage = () => {
                   </div>
                 )}
 
-                {/* 파이프라인이 속한 도메인 */}
                 {(() => {
                   const orphanDomains = actualDomainIds.filter(
                     domainId => !domains.find(d => d.id === domainId)
@@ -714,7 +690,6 @@ const Lineage = () => {
                   }
                 })()}
 
-                {/* 기타 */}
                 {(() => {
                   const untaggedCount = getDomainPipelineCount('__untagged__');
                   if (untaggedCount > 0) {
@@ -868,7 +843,7 @@ const Lineage = () => {
 
           {/* 사이드 패널 */}
           {showPanel && selectedNodeData && (
-            <div className="w-96 bg-white rounded-lg shadow-lg border overflow-hidden flex flex-col" style={{ height: '650px' }}>
+            <div className="w-[500px] bg-white rounded-lg shadow-lg border overflow-hidden flex flex-col" style={{ height: '650px' }}>
               <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-semibold">Step Details</h3>
@@ -975,29 +950,86 @@ const Lineage = () => {
                           </div>
                           {input.s3 && (
                             <div className="mt-2 pt-2 border-t border-green-200 space-y-1 text-xs">
+                              {/* Bucket */}
+                              <div className="flex items-center justify-between">
+                                <span className="text-green-600">Bucket:</span>
+                                <span className="font-medium font-mono text-[10px] truncate max-w-[200px]" title={input.s3.bucket}>
+                                  {safeValue(input.s3.bucket)}
+                                </span>
+                              </div>
+                              
+                              {/* Region */}
                               <div className="flex items-center justify-between">
                                 <span className="text-green-600">Region:</span>
                                 <span className="font-medium">{safeValue(input.s3.region)}</span>
                               </div>
+                              
+                              {/* Encryption */}
                               <div className="flex items-center justify-between">
                                 <span className="text-green-600">Encryption:</span>
                                 <span className="font-medium">{safeValue(input.s3.encryption)}</span>
                               </div>
+                              
+                              {/* Versioning */}
                               <div className="flex items-center justify-between">
                                 <span className="text-green-600">Versioning:</span>
                                 <span className="font-medium">{safeValue(input.s3.versioning)}</span>
                               </div>
-                              {input.s3.tags && Object.keys(input.s3.tags).length > 0 && (
-                                <div className="mt-2">
-                                  <div className="text-xs font-medium text-green-700 mb-1">Tags:</div>
-                                  {Object.entries(input.s3.tags).slice(0, 3).map(([k, v]) => (
-                                    <div key={k} className="flex justify-between text-xs">
-                                      <span className="text-green-600">{safeValue(k)}:</span>
-                                      <span className="font-medium truncate ml-2">{safeValue(v)}</span>
-                                    </div>
-                                  ))}
+                              
+                              {/* Public Access */}
+                              {input.s3.publicAccess && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-green-600">Public Access:</span>
+                                  <span className={`font-medium px-2 py-0.5 rounded text-xs ${
+                                    input.s3.publicAccess === 'Blocked' 
+                                      ? 'bg-green-700 text-white' 
+                                      : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {safeValue(input.s3.publicAccess)}
+                                  </span>
                                 </div>
                               )}
+                              
+                              {/* Tags - Collapsible */}
+                              {input.s3.tags && Object.keys(input.s3.tags).length > 0 && (
+                                <div className="mt-2">
+                                  <details className="group">
+                                    <summary className="text-xs font-medium text-green-700 cursor-pointer hover:text-green-900 flex items-center gap-1">
+                                      <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                      Tags ({Object.keys(input.s3.tags).length})
+                                    </summary>
+                                    <div className="mt-2 space-y-1 pl-4 max-h-40 overflow-y-auto bg-green-100 rounded p-2">
+                                      {Object.entries(input.s3.tags).map(([k, v]) => (
+                                        <div key={k} className="text-[10px] border-b border-green-200 last:border-b-0 pb-1">
+                                          <div className="text-green-700 font-semibold break-all">
+                                            {safeValue(k)}:
+                                          </div>
+                                          <div className="text-green-900 break-all pl-2">
+                                            {safeValue(v)}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </details>
+                                </div>
+                              )}
+                              
+                              {/* S3 Console Link */}
+                              <div className="mt-2 pt-2 border-t border-green-200">
+                              <a
+                                  href={`https://s3.console.aws.amazon.com/s3/buckets/${input.s3.bucket}?region=${input.s3.region}&prefix=${encodeURIComponent(input.uri.replace(`s3://${input.s3.bucket}/`, ''))}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-green-700 hover:text-green-900 hover:underline flex items-center gap-1"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                  S3 콘솔에서 보기
+                                </a>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1021,29 +1053,86 @@ const Lineage = () => {
                           </div>
                           {output.s3 && (
                             <div className="mt-2 pt-2 border-t border-purple-200 space-y-1 text-xs">
+                              {/* Bucket */}
+                              <div className="flex items-center justify-between">
+                                <span className="text-purple-600">Bucket:</span>
+                                <span className="font-medium font-mono text-[10px] truncate max-w-[200px]" title={output.s3.bucket}>
+                                  {safeValue(output.s3.bucket)}
+                                </span>
+                              </div>
+                              
+                              {/* Region */}
                               <div className="flex items-center justify-between">
                                 <span className="text-purple-600">Region:</span>
                                 <span className="font-medium">{safeValue(output.s3.region)}</span>
                               </div>
+                              
+                              {/* Encryption */}
                               <div className="flex items-center justify-between">
                                 <span className="text-purple-600">Encryption:</span>
                                 <span className="font-medium">{safeValue(output.s3.encryption)}</span>
                               </div>
+                              
+                              {/* Versioning */}
                               <div className="flex items-center justify-between">
                                 <span className="text-purple-600">Versioning:</span>
                                 <span className="font-medium">{safeValue(output.s3.versioning)}</span>
                               </div>
-                              {output.s3.tags && Object.keys(output.s3.tags).length > 0 && (
-                                <div className="mt-2">
-                                  <div className="text-xs font-medium text-purple-700 mb-1">Tags:</div>
-                                  {Object.entries(output.s3.tags).slice(0, 3).map(([k, v]) => (
-                                    <div key={k} className="flex justify-between text-xs">
-                                      <span className="text-purple-600">{safeValue(k)}:</span>
-                                      <span className="font-medium truncate ml-2">{safeValue(v)}</span>
-                                    </div>
-                                  ))}
+                              
+                              {/* Public Access */}
+                              {output.s3.publicAccess && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-purple-600">Public Access:</span>
+                                  <span className={`font-medium px-2 py-0.5 rounded text-xs ${
+                                    output.s3.publicAccess === 'Blocked' 
+                                      ? 'bg-purple-700 text-white' 
+                                      : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {safeValue(output.s3.publicAccess)}
+                                  </span>
                                 </div>
                               )}
+                              
+                              {/* Tags - Collapsible */}
+                              {output.s3.tags && Object.keys(output.s3.tags).length > 0 && (
+                                <div className="mt-2">
+                                  <details className="group">
+                                    <summary className="text-xs font-medium text-purple-700 cursor-pointer hover:text-purple-900 flex items-center gap-1">
+                                      <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                      Tags ({Object.keys(output.s3.tags).length})
+                                    </summary>
+                                    <div className="mt-2 space-y-1 pl-4 max-h-40 overflow-y-auto bg-green-100 rounded p-2">
+                                      {Object.entries(output.s3.tags).map(([k, v]) => (
+                                        <div key={k} className="text-[10px] border-b border-green-200 last:border-b-0 pb-1">
+                                          <div className="text-green-700 font-semibold break-all">
+                                            {safeValue(k)}:
+                                          </div>
+                                          <div className="text-green-900 break-all pl-2">
+                                            {safeValue(v)}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </details>
+                                </div>
+                              )}
+                              
+                              {/* S3 Console Link */}
+                              <div className="mt-2 pt-2 border-t border-purple-200">
+                                <a
+                                  href={`https://s3.console.aws.amazon.com/s3/buckets/${output.s3.bucket}?region=${output.s3.region}&prefix=${encodeURIComponent(output.uri.replace(`s3://${output.s3.bucket}/`, ''))}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-purple-700 hover:text-purple-900 hover:underline flex items-center gap-1"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                  S3 콘솔에서 보기
+                                </a>
+                              </div>
                             </div>
                           )}
                         </div>
