@@ -6,6 +6,7 @@ import Overview from './pages/Overview';
 import Inventory from './pages/DataTarget';
 import Alerts from './pages/Alerts';
 import Policies from './pages/Policies';
+import Policies2 from './pages/Policies2';
 import Lineage from './pages/Lineage';
 import AwsSetup from './pages/AwsSetup';
 import { Activity, Database, Bell, Shield, GitBranch,  Cloud,Target  } from 'lucide-react';
@@ -38,6 +39,7 @@ const App = () => {
       case 'data-target': return <Inventory activeTab={activeTab} />;
       case 'alerts': return <Alerts />;
       case 'policies': return <Policies />;
+      case 'policies2': return <Policies2 />;
       case 'lineage': return <Lineage />;
       case 'aws-setup': return <AwsSetup />;      
       default: return <Overview securityScoreData={{ score: 79 }} />;
@@ -60,4 +62,3 @@ const App = () => {
 };
 
 export default App;
-
