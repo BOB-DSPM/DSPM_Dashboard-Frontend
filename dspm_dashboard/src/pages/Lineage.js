@@ -314,7 +314,7 @@ const Lineage = () => {
       allEdges.push({
         source: edge.from,
         target: edge.to,
-        label: getLabelString(edge.label),
+        label: '',//getLabelString(edge.label),
         style: { stroke: '#6366f1', strokeWidth: 2 },
         type: 'api'
       });
@@ -338,7 +338,7 @@ const Lineage = () => {
               allEdges.push({
                 source: sourceNode.id,
                 target: targetNode.id,
-                label: safeValue(input.name) || '',
+                label: '',//safeValue(input.name) || '',
                 style: { stroke: '#10b981', strokeWidth: 2 },
                 labelStyle: { fontSize: 9, fill: '#059669', fontWeight: 500 },
                 type: 'data'
