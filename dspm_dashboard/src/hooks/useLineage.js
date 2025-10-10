@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-const LINEAGE_API = 'http://127.0.0.1:8000';
+const LINEAGE_API = 'http://192.168.0.10:8300';
 
 export const useLineage = () => {
   const [loading, setLoading] = useState(false);
