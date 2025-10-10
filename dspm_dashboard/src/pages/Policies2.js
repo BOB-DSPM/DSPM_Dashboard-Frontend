@@ -1,3 +1,4 @@
+// src/components/Policies2.js
 import React, { useState, useEffect } from 'react';
 import { Shield, ChevronRight, CheckCircle, XCircle, AlertCircle, Play, X, ChevronDown, ChevronUp } from 'lucide-react';
 import gdprLogo from './logo/gdpr.png';
@@ -222,6 +223,12 @@ const Policies2 = () => {
 
   return (
     <div className="space-y-6 relative">
+      <style>{`
+        .requirements-table .id-column {
+          display: none;
+        }
+      `}</style>
+
       <div className="flex items-center gap-3">
         <Shield className="w-8 h-8 text-primary-500" />
         <h1 className="text-3xl font-bold text-gray-900">Compliance Policies</h1>
@@ -324,10 +331,13 @@ const Policies2 = () => {
             </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full requirements-table">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                    
+                  </th>
+                  <th className="id-column px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -348,25 +358,25 @@ const Policies2 = () => {
                 {requirements.map((req) => (
                   <React.Fragment key={req.id}>
                     <tr className="hover:bg-gray-50 border-b border-gray-200">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div className="flex items-center gap-2">
-                          {req.audit_result && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleExpand(`req-${req.id}`);
-                              }}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              {expandedItems[`req-${req.id}`] ? (
-                                <ChevronUp className="w-4 h-4" />
-                              ) : (
-                                <ChevronDown className="w-4 h-4" />
-                              )}
-                            </button>
-                          )}
-                          <span>{req.id}</span>
-                        </div>
+                      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {req.audit_result && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpand(`req-${req.id}`);
+                            }}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            {expandedItems[`req-${req.id}`] ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+                      </td>
+                      <td className="id-column px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {req.id}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {req.item_code || '-'}
@@ -402,7 +412,7 @@ const Policies2 = () => {
                     
                     {expandedItems[`req-${req.id}`] && req.audit_result && (
                       <tr className="bg-gray-50">
-                        <td colSpan="5" className="px-6 py-4">
+                        <td colSpan="6" className="px-6 py-4">
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
                               <h4 className="text-sm font-semibold text-gray-700">진단 결과 상세</h4>
