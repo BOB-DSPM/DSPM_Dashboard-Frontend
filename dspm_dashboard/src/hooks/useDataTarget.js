@@ -11,7 +11,7 @@ export const useDataTarget = (activeTab) => {
         setLoadingInventory(true);
         setError(null);
         try {
-          const response = await fetch('/api/all-resources');
+          const response = await fetch('http://192.168.0.10:8000/api/all-resources');
           
           if (response.ok) {
             const data = await response.json();
@@ -20,11 +20,16 @@ export const useDataTarget = (activeTab) => {
             const formattedResources = formatResources(data);
             setInventoryData(formattedResources);
           } else {
-            setError(`Failed to fetch resources: ${response.status} ${response.statusText}`);
+            console.warn(`API error: ${response.status} ${response.statusText}`);
+            // 에러 표시 대신 빈 배열 사용
+            setInventoryData([]);
           }
         } catch (error) {
-          console.error('Error fetching inventory data:', error);
-          setError(error.message);
+          console.warn('Backend API not available:', error.message);
+          // 네트워크 에러는 조용히 처리하고 빈 배열 사용
+          setInventoryData([]);
+          // setError는 주석 처리하여 팝업 방지
+          // setError(error.message);
         } finally {
           setLoadingInventory(false);
         }
