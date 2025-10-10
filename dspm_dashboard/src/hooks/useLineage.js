@@ -1,3 +1,4 @@
+// src/hooks/useLineage.js
 import { useState, useCallback } from 'react';
 
 const LINEAGE_API = 'http://192.168.0.10:8300';
@@ -31,23 +32,6 @@ export const useLineage = () => {
       const data = await response.json();
       console.log('API Response:', data);
       
-      // 도메인 목록 추출
-      const domainList = [];
-      if (data.regions && Array.isArray(data.regions)) {
-        data.regions.forEach(regionData => {
-          if (regionData.domains && Array.isArray(regionData.domains)) {
-            regionData.domains.forEach(domain => {
-              domainList.push({
-                id: domain.DomainId,
-                name: domain.DomainName,
-                region: regionData.region,
-              });
-            });
-          }
-        });
-      }
-      setDomains(domainList);
-      
       // 파이프라인 목록 추출
       const pipelineList = [];
       if (data.regions && Array.isArray(data.regions)) {
@@ -67,6 +51,26 @@ export const useLineage = () => {
         });
       }
       
+      // 파이프라인에서 실제 사용되는 도메인 ID 추출
+      const domainIdSet = new Set();
+      pipelineList.forEach(pipe => {
+        if (pipe.tags && pipe.tags['sagemaker:domain-arn']) {
+          const match = pipe.tags['sagemaker:domain-arn'].match(/domain\/(d-[a-z0-9]+)/);
+          if (match) {
+            domainIdSet.add(match[1]);
+          }
+        }
+      });
+      
+      // 도메인 목록 생성 (ID만 표시)
+      const domainList = Array.from(domainIdSet).map(domainId => ({
+        id: domainId,
+        name: domainId,  // 이름 대신 ID 표시
+        region: regions,
+      }));
+      
+      setDomains(domainList);
+      
       console.log('Extracted pipeline list:', pipelineList);
       console.log('Extracted domain list:', domainList);
       setPipelines(pipelineList);
@@ -75,8 +79,6 @@ export const useLineage = () => {
       console.warn('Backend API not available:', err.message);
       setPipelines([]);
       setDomains([]);
-      // setError 주석 처리하여 팝업 방지
-      // setError(err.message || '파이프라인 목록을 불러올 수 없습니다');
       return [];
     } finally {
       setLoadingPipelines(false);
@@ -109,8 +111,6 @@ export const useLineage = () => {
     } catch (err) {
       console.warn('Backend API not available:', err.message);
       setLineageData(null);
-      // setError 주석 처리하여 팝업 방지
-      // setError(err.message || '데이터를 불러올 수 없습니다');
       return null;
     } finally {
       setLoading(false);
