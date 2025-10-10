@@ -35,53 +35,40 @@ const Lineage = () => {
   const [selectedDomain, setSelectedDomain] = useState({ id: '__all__', name: '전체 도메인', region: 'ap-northeast-2' });
 
   // -------------------------
-  // 파이프라인에서 실제 사용되는 도메인 이름 추출
+  // 각 도메인별 파이프라인 개수 계산
   // -------------------------
-  const getActualDomainsFromPipelines = () => {
-    const domainSet = new Set();
-    
-    pipelines.forEach(p => {
-      if (p.matchedDomain) {
-        domainSet.add(p.matchedDomain);
-      }
-    });
-    
-    return Array.from(domainSet);
-  };
-
-  const actualDomainNames = getActualDomainsFromPipelines();
-
-  // -------------------------
-  // 각 도메인별 파이프라인 개수 계산 (이름 기반)
-  // -------------------------
-  const getDomainPipelineCount = (domainName) => {
-    if (domainName === '__untagged__') {
+  const getDomainPipelineCount = (domainId) => {
+    if (domainId === '__untagged__') {
       return pipelines.filter(p => {
-        const hasMatchedDomain = p.matchedDomain;
-        return !hasMatchedDomain;
+        const hasDomainTag = p.tags && p.tags['sagemaker:domain-arn'];
+        return !hasDomainTag;
       }).length;
     }
     
     return pipelines.filter(p => {
-      return p.matchedDomain === domainName;
+      if (p.tags && p.tags['sagemaker:domain-arn']) {
+        const domainArn = p.tags['sagemaker:domain-arn'];
+        return domainArn.includes(domainId);
+      }
+      return false;
     }).length;
   };
 
   // -------------------------
-  // 도메인으로 필터링된 파이프라인 (이름 기반)
+  // 도메인으로 필터링된 파이프라인
   // -------------------------
   const filteredPipelines = selectedDomain 
     ? selectedDomain.id === '__all__'
       ? pipelines
       : selectedDomain.id === '__untagged__'
         ? pipelines.filter(p => {
-            const hasMatchedDomain = p.matchedDomain;
-            return !hasMatchedDomain;
+            const hasDomainTag = p.tags && p.tags['sagemaker:domain-arn'];
+            return !hasDomainTag;
           })
         : pipelines.filter(p => {
-            // matchedDomain (이름)으로만 필터링
-            if (p.matchedDomain) {
-              return p.matchedDomain === selectedDomain.name;
+            if (p.tags && p.tags['sagemaker:domain-arn']) {
+              const domainArn = p.tags['sagemaker:domain-arn'];
+              return domainArn.includes(selectedDomain.id);
             }
             return false;
           })
@@ -622,23 +609,21 @@ const Lineage = () => {
                   </button>
                 </div>
 
+                {/* 도메인 ID 목록 */}
                 {domains.length > 0 && (
                   <div className="border-b border-gray-200">
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
-                      파싱된 도메인 (Catalog)
-                    </div>
                     {domains.map((domain, index) => {
-                      const count = getDomainPipelineCount(domain.name);
+                      const count = getDomainPipelineCount(domain.id);
                       return (
                         <button
-                          key={`catalog-${index}`}
+                          key={`domain-${index}`}
                           onClick={() => {
                             setSelectedDomain(domain);
                             setShowDomainDropdown(false);
                           }}
                           className="w-full px-4 py-2 text-left hover:bg-gray-50"
                         >
-                          <div className="font-medium text-sm text-gray-900">{safeValue(domain.name)}</div>
+                          <div className="font-medium text-sm text-gray-900">{domain.id}</div>
                           <div className="text-xs text-gray-500">{count}개 파이프라인</div>
                         </button>
                       );
@@ -646,55 +631,20 @@ const Lineage = () => {
                   </div>
                 )}
 
-                {(() => {
-                  const orphanDomainNames = actualDomainNames.filter(
-                    domainName => !domains.find(d => d.name === domainName)
-                  );
-                  
-                  if (orphanDomainNames.length > 0) {
-                    return (
-                      <div className="border-b border-gray-200">
-                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
-                          파이프라인이 속한 도메인
-                        </div>
-                        {orphanDomainNames.map((domainName, index) => {
-                          const count = getDomainPipelineCount(domainName);
-                          return (
-                            <button
-                              key={`actual-${index}`}
-                              onClick={() => {
-                                const domain = { id: domainName, name: domainName, region: 'ap-northeast-2' };
-                                setSelectedDomain(domain);
-                                setShowDomainDropdown(false);
-                              }}
-                              className="w-full px-4 py-2 text-left hover:bg-gray-50"
-                            >
-                              <div className="font-medium text-sm text-gray-900">{domainName}</div>
-                              <div className="text-xs text-gray-500">{count}개 파이프라인</div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  }
-                })()}
-
+                {/* 기타 (도메인 미지정) */}
                 {(() => {
                   const untaggedCount = getDomainPipelineCount('__untagged__');
                   if (untaggedCount > 0) {
                     return (
                       <div>
-                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
-                          기타
-                        </div>
                         <button
                           onClick={() => {
-                            setSelectedDomain({ id: '__untagged__', name: '도메인 미지정', region: 'ap-northeast-2' });
+                            setSelectedDomain({ id: '__untagged__', name: '기타', region: 'ap-northeast-2' });
                             setShowDomainDropdown(false);
                           }}
                           className="w-full px-4 py-2 text-left hover:bg-gray-50"
                         >
-                          <div className="font-medium text-sm text-gray-900">도메인 미지정</div>
+                          <div className="font-medium text-sm text-gray-900">기타</div>
                           <div className="text-xs text-gray-500">{untaggedCount}개 파이프라인</div>
                         </button>
                       </div>
@@ -1004,12 +954,12 @@ const Lineage = () => {
                               
                               {/* S3 Console Link */}
                               <div className="mt-2 pt-2 border-t border-green-200">
-                                <a
+                                <a>
                                   href={`https://s3.console.aws.amazon.com/s3/buckets/${input.s3.bucket}?region=${input.s3.region}&prefix=${encodeURIComponent(input.uri.replace(`s3://${input.s3.bucket}/`, ''))}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-xs text-green-700 hover:text-green-900 hover:underline flex items-center gap-1"
-                                >
+                                
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                   </svg>
@@ -1107,12 +1057,12 @@ const Lineage = () => {
                               
                               {/* S3 Console Link */}
                               <div className="mt-2 pt-2 border-t border-purple-200">
-                                <a
+                                <a>
                                   href={`https://s3.console.aws.amazon.com/s3/buckets/${output.s3.bucket}?region=${output.s3.region}&prefix=${encodeURIComponent(output.uri.replace(`s3://${output.s3.bucket}/`, ''))}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-xs text-purple-700 hover:text-purple-900 hover:underline flex items-center gap-1"
-                                >
+                                
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                   </svg>
