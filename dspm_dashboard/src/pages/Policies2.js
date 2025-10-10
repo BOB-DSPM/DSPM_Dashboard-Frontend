@@ -114,17 +114,17 @@ const Policies2 = () => {
         return req;
       }));
       
-      alert('감사가 완료되었습니다.');
+      alert('진단이 완료되었습니다.');
     } catch (error) {
-      console.error('감사 실패:', error);
-      alert('감사에 실패했습니다: ' + error.message);
+      console.error('진단 실패:', error);
+      alert('진단 실패했습니다: ' + error.message);
     } finally {
       setAuditing(false);
     }
   };
 
   const auditAllFramework = async (frameworkCode) => {
-    if (!window.confirm(`${frameworkCode} 전체 항목에 대한 감사를 수행하시겠습니까?`)) {
+    if (!window.confirm(`${frameworkCode} 전체 항목에 대한 진단을 수행하시겠습니까?`)) {
       return;
     }
     setAuditing(true);
@@ -155,10 +155,10 @@ const Policies2 = () => {
       setAuditResults(prev => ({ ...prev, ...newAuditResults }));
       setRequirements(updatedRequirements);
       
-      alert('전체 감사가 완료되었습니다.');
+      alert('전체 진단이 완료되었습니다.');
     } catch (error) {
-      console.error('전체 감사 실패:', error);
-      alert('전체 감사에 실패했습니다: ' + error.message);
+      console.error('전체 진단 실패:', error);
+      alert('전체 진단에 실패했습니다: ' + error.message);
     } finally {
       setAuditing(false);
     }
@@ -167,7 +167,7 @@ const Policies2 = () => {
   const getMappingStatusBadge = (status) => {
     if (status === 'COMPLIANT' || status === 'Compliant') {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-blue-800">
           준수
         </span>
       );
@@ -223,7 +223,7 @@ const Policies2 = () => {
   return (
     <div className="space-y-6 relative">
       <div className="flex items-center gap-3">
-        <Shield className="w-8 h-8 text-blue-600" />
+        <Shield className="w-8 h-8 text-primary-500" />
         <h1 className="text-3xl font-bold text-gray-900">Compliance Policies</h1>
       </div>
       
@@ -248,7 +248,7 @@ const Policies2 = () => {
 
       {loading && !sidePanelOpen && (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
         </div>
       )}
 
@@ -276,7 +276,7 @@ const Policies2 = () => {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center overflow-hidden">
+                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden">
                         <img 
                           src={getFrameworkLogo(fw.framework)} 
                           alt={`${fw.framework} logo`}
@@ -318,7 +318,7 @@ const Policies2 = () => {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   <Play className="w-4 h-4" />
-                  {auditing ? '감사 중...' : '전체 감사'}
+                  {auditing ? '진단 중...' : '전체 진단'}
                 </button>
               </div>
             </div>
@@ -334,7 +334,7 @@ const Policies2 = () => {
                     항목 코드
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    제목
+                    세부 사항
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     매핑 상태
@@ -372,7 +372,7 @@ const Policies2 = () => {
                         {req.item_code || '-'}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        <span>{req.title}</span>
+                        <span>{req.regulation || req.title || '-'}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getMappingStatusBadge(req.mapping_status)}
@@ -394,7 +394,7 @@ const Policies2 = () => {
                             className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                           >
                             <Play className="w-3 h-3" />
-                            감사
+                            진단
                           </button>
                         </div>
                       </td>
@@ -405,7 +405,7 @@ const Policies2 = () => {
                         <td colSpan="5" className="px-6 py-4">
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-semibold text-gray-700">감사 결과 상세</h4>
+                              <h4 className="text-sm font-semibold text-gray-700">진단 결과 상세</h4>
                               {req.audit_result.summary && (
                                 <div className="flex items-center gap-3 text-xs">
                                   <span className="text-blue-600">준수: {req.audit_result.summary.COMPLIANT || 0}</span>
@@ -463,7 +463,7 @@ const Policies2 = () => {
                                 ))}
                               </div>
                             ) : (
-                              <p className="text-sm text-gray-500">감사 결과가 없습니다.</p>
+                              <p className="text-sm text-gray-500">진단 결과가 없습니다.</p>
                             )}
                           </div>
                         </td>
@@ -493,8 +493,7 @@ const Policies2 = () => {
                 <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
                   <span>ID: {mappingDetail.requirement.id}</span>
                   <span>코드: {mappingDetail.requirement.item_code}</span>
-                  {getMappingStatusBadge(mappingDetail.requirement.mapping_status)}
-                </div>
+                </div>  
               </div>
               <button
                 onClick={closeSidePanel}
