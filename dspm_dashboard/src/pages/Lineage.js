@@ -1,3 +1,4 @@
+// src/pages/Lineage.js
 import React, { useCallback, useState, useEffect } from 'react';
 import ReactFlow, {
   Controls,
@@ -34,63 +35,51 @@ const Lineage = () => {
   const [selectedDomain, setSelectedDomain] = useState({ id: '__all__', name: '전체 도메인', region: 'ap-northeast-2' });
 
   // -------------------------
-  // 파이프라인에서 실제 사용되는 도메인 ID 추출
+  // 파이프라인에서 실제 사용되는 도메인 이름 추출
   // -------------------------
   const getActualDomainsFromPipelines = () => {
     const domainSet = new Set();
     
     pipelines.forEach(p => {
-      if (p.tags && p.tags['sagemaker:domain-arn']) {
-        const match = p.tags['sagemaker:domain-arn'].match(/domain\/(d-[a-z0-9]+)/);
-        if (match) {
-          domainSet.add(match[1]);
-        }
+      if (p.matchedDomain) {
+        domainSet.add(p.matchedDomain);
       }
     });
     
     return Array.from(domainSet);
   };
 
-  const actualDomainIds = getActualDomainsFromPipelines();
+  const actualDomainNames = getActualDomainsFromPipelines();
 
   // -------------------------
-  // 각 도메인별 파이프라인 개수 계산
+  // 각 도메인별 파이프라인 개수 계산 (이름 기반)
   // -------------------------
-  const getDomainPipelineCount = (domainId) => {
-    if (domainId === '__untagged__') {
+  const getDomainPipelineCount = (domainName) => {
+    if (domainName === '__untagged__') {
       return pipelines.filter(p => {
-        const hasDomainTag = p.tags && p.tags['sagemaker:domain-arn'];
         const hasMatchedDomain = p.matchedDomain;
-        return !hasDomainTag && !hasMatchedDomain;
+        return !hasMatchedDomain;
       }).length;
     }
     
     return pipelines.filter(p => {
-      if (p.tags && p.tags['sagemaker:domain-arn']) {
-        const domainArn = p.tags['sagemaker:domain-arn'];
-        return domainArn.includes(domainId);
-      }
-      return false;
+      return p.matchedDomain === domainName;
     }).length;
   };
 
   // -------------------------
-  // 도메인으로 필터링된 파이프라인
+  // 도메인으로 필터링된 파이프라인 (이름 기반)
   // -------------------------
   const filteredPipelines = selectedDomain 
     ? selectedDomain.id === '__all__'
       ? pipelines
       : selectedDomain.id === '__untagged__'
         ? pipelines.filter(p => {
-            const hasDomainTag = p.tags && p.tags['sagemaker:domain-arn'];
             const hasMatchedDomain = p.matchedDomain;
-            return !hasDomainTag && !hasMatchedDomain;
+            return !hasMatchedDomain;
           })
         : pipelines.filter(p => {
-            if (p.tags && p.tags['sagemaker:domain-arn']) {
-              const domainArn = p.tags['sagemaker:domain-arn'];
-              return domainArn.includes(selectedDomain.id);
-            }
+            // matchedDomain (이름)으로만 필터링
             if (p.matchedDomain) {
               return p.matchedDomain === selectedDomain.name;
             }
@@ -614,7 +603,7 @@ const Lineage = () => {
               <span className="text-gray-900">
                 {selectedDomain 
                   ? `${safeValue(selectedDomain.name)} (${filteredPipelines.length}개)`
-                  : '전체 도메인 (3개)'}
+                  : '전체 도메인'}
               </span>
               <ChevronDown className={`w-4 h-4 transition-transform ${showDomainDropdown ? 'rotate-180' : ''}`} />
             </button>
@@ -639,7 +628,7 @@ const Lineage = () => {
                       파싱된 도메인 (Catalog)
                     </div>
                     {domains.map((domain, index) => {
-                      const count = getDomainPipelineCount(domain.id);
+                      const count = getDomainPipelineCount(domain.name);
                       return (
                         <button
                           key={`catalog-${index}`}
@@ -650,7 +639,7 @@ const Lineage = () => {
                           className="w-full px-4 py-2 text-left hover:bg-gray-50"
                         >
                           <div className="font-medium text-sm text-gray-900">{safeValue(domain.name)}</div>
-                          <div className="text-xs text-gray-500">{count}개</div>
+                          <div className="text-xs text-gray-500">{count}개 파이프라인</div>
                         </button>
                       );
                     })}
@@ -658,30 +647,30 @@ const Lineage = () => {
                 )}
 
                 {(() => {
-                  const orphanDomains = actualDomainIds.filter(
-                    domainId => !domains.find(d => d.id === domainId)
+                  const orphanDomainNames = actualDomainNames.filter(
+                    domainName => !domains.find(d => d.name === domainName)
                   );
                   
-                  if (orphanDomains.length > 0) {
+                  if (orphanDomainNames.length > 0) {
                     return (
                       <div className="border-b border-gray-200">
                         <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-50">
                           파이프라인이 속한 도메인
                         </div>
-                        {orphanDomains.map((domainId, index) => {
-                          const count = getDomainPipelineCount(domainId);
+                        {orphanDomainNames.map((domainName, index) => {
+                          const count = getDomainPipelineCount(domainName);
                           return (
                             <button
                               key={`actual-${index}`}
                               onClick={() => {
-                                const domain = { id: domainId, name: domainId, region: 'ap-northeast-2' };
+                                const domain = { id: domainName, name: domainName, region: 'ap-northeast-2' };
                                 setSelectedDomain(domain);
                                 setShowDomainDropdown(false);
                               }}
                               className="w-full px-4 py-2 text-left hover:bg-gray-50"
                             >
-                              <div className="font-medium text-sm text-gray-900">{domainId}</div>
-                              <div className="text-xs text-gray-500">{count}개</div>
+                              <div className="font-medium text-sm text-gray-900">{domainName}</div>
+                              <div className="text-xs text-gray-500">{count}개 파이프라인</div>
                             </button>
                           );
                         })}
@@ -706,7 +695,7 @@ const Lineage = () => {
                           className="w-full px-4 py-2 text-left hover:bg-gray-50"
                         >
                           <div className="font-medium text-sm text-gray-900">도메인 미지정</div>
-                          <div className="text-xs text-gray-500">{untaggedCount}개</div>
+                          <div className="text-xs text-gray-500">{untaggedCount}개 파이프라인</div>
                         </button>
                       </div>
                     );
@@ -773,13 +762,10 @@ const Lineage = () => {
         {/* 선택된 도메인/파이프라인 정보 */}
         {(selectedDomain || selectedPipeline) && (
           <div className="mt-3 space-y-2">
-            {selectedDomain && (
+            {selectedDomain && selectedDomain.id !== '__all__' && (
               <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                 <div className="text-sm font-semibold text-purple-900">
                   Domain: {safeValue(selectedDomain.name)}
-                </div>
-                <div className="text-xs text-purple-700 mt-1">
-                  {safeValue(selectedDomain.id)}
                 </div>
               </div>
             )}
@@ -1018,7 +1004,7 @@ const Lineage = () => {
                               
                               {/* S3 Console Link */}
                               <div className="mt-2 pt-2 border-t border-green-200">
-                              <a
+                                <a
                                   href={`https://s3.console.aws.amazon.com/s3/buckets/${input.s3.bucket}?region=${input.s3.region}&prefix=${encodeURIComponent(input.uri.replace(`s3://${input.s3.bucket}/`, ''))}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -1103,13 +1089,13 @@ const Lineage = () => {
                                       </svg>
                                       Tags ({Object.keys(output.s3.tags).length})
                                     </summary>
-                                    <div className="mt-2 space-y-1 pl-4 max-h-40 overflow-y-auto bg-green-100 rounded p-2">
+                                    <div className="mt-2 space-y-1 pl-4 max-h-40 overflow-y-auto bg-purple-100 rounded p-2">
                                       {Object.entries(output.s3.tags).map(([k, v]) => (
-                                        <div key={k} className="text-[10px] border-b border-green-200 last:border-b-0 pb-1">
-                                          <div className="text-green-700 font-semibold break-all">
+                                        <div key={k} className="text-[10px] border-b border-purple-200 last:border-b-0 pb-1">
+                                          <div className="text-purple-700 font-semibold break-all">
                                             {safeValue(k)}:
                                           </div>
-                                          <div className="text-green-900 break-all pl-2">
+                                          <div className="text-purple-900 break-all pl-2">
                                             {safeValue(v)}
                                           </div>
                                         </div>

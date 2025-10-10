@@ -1,4 +1,6 @@
+// src/App.js
 import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Header from './components/navigation/Header';
 import Sidebar from './components/navigation/Sidebar';
@@ -9,6 +11,7 @@ import Policies from './pages/Policies';
 import Policies2 from './pages/Policies2';
 import Lineage from './pages/Lineage';
 import AwsSetup from './pages/AwsSetup';
+import AegisResults from './pages/AegisResults';
 import { Activity, Database, Bell, Shield, GitBranch, Cloud, Target } from 'lucide-react';
 
 const tabs = [
@@ -21,11 +24,8 @@ const tabs = [
   { id: 'alerts', name: 'Alerts', icon: Bell },
 ];
 
-const App = () => {
-  console.log('App is rendering');
-
+const DashboardLayout = ({ children, onLogout, showSidebar = true }) => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [componentKeys, setComponentKeys] = useState({
     overview: 0,
     'aws-setup': 0,
@@ -37,13 +37,43 @@ const App = () => {
   });
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
+    onLogout();
     setActiveTab('overview');
   };
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
-    // 컴포넌트 재마운트를 위해 key 증가
+    setComponentKeys(prev => ({
+      ...prev,
+      [tabId]: prev[tabId] + 1
+    }));
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Header onLogout={handleLogout} />
+      <div className="flex flex-1">
+        {showSidebar && <Sidebar tabs={tabs} activeTab={activeTab} setActiveTab={handleTabChange} />}
+        <div className="flex-1 px-6 py-8">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+const MainDashboard = ({ onLogout }) => {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [componentKeys, setComponentKeys] = useState({
+    overview: 0,
+    'aws-setup': 0,
+    'data-target': 0,
+    lineage: 0,
+    policies: 0,
+    policies2: 0,
+    alerts: 0,
+  });
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
     setComponentKeys(prev => ({
       ...prev,
       [tabId]: prev[tabId] + 1
@@ -71,18 +101,42 @@ const App = () => {
     }
   };
 
-  if (!isLoggedIn) {
-    return <Login onLogin={() => setIsLoggedIn(true)} />;
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header onLogout={handleLogout} />
+      <Header onLogout={onLogout} />
       <div className="flex flex-1">
         <Sidebar tabs={tabs} activeTab={activeTab} setActiveTab={handleTabChange} />
         <div className="flex-1 px-6 py-8">{renderContent()}</div>
       </div>
     </div>
+  );
+};
+
+const App = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  if (!isLoggedIn) {
+    return <Login onLogin={() => setIsLoggedIn(true)} />;
+  }
+
+  return (
+    <BrowserRouter basename="/dashboard">
+      <Routes>
+        <Route path="/" element={<Navigate to="/overview" replace />} />
+        <Route path="/*" element={<MainDashboard onLogout={() => setIsLoggedIn(false)} />} />
+        <Route 
+          path="/aegis-results" 
+          element={
+            <div className="min-h-screen flex flex-col bg-gray-50">
+              <Header onLogout={() => setIsLoggedIn(false)} />
+              <div className="flex-1 px-6 py-8">
+                <AegisResults />
+              </div>
+            </div>
+          } 
+        />
+      </Routes>
+    </BrowserRouter>
   );
 };
 

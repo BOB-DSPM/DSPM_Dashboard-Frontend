@@ -1,14 +1,18 @@
+// src/components/DataTarget/DataTargetList.js 수정
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ResourceCard from './ResourceCard';
 import DetailPanel from './DetailPanel';
+import { aegisApi } from '../../services/aegisApi';
 
 const DataTargetList = ({ inventoryData, loading }) => {
+  const navigate = useNavigate();
   const [selectedResource, setSelectedResource] = useState(null);
   const [selectedResources, setSelectedResources] = useState(new Set());
   const [filter, setFilter] = useState('all');
   const [isSending, setIsSending] = useState(false);
 
-  // 모든 리소스 타입 정의 (데이터 유무 관계없이)
+  // 모든 리소스 타입 정의
   const allResourceTypes = [
     { type: 's3', label: 'S3' },
     { type: 'ebs', label: 'EBS' },
@@ -50,7 +54,6 @@ const DataTargetList = ({ inventoryData, loading }) => {
     setSelectedResources(newSelected);
   };
 
-  // 선택한 리소스 전송 함수
   const handleSendToAnalyzer = async () => {
     if (selectedResources.size === 0) {
       alert('위협 식별할 저장소를 선택해주세요.');
@@ -60,31 +63,36 @@ const DataTargetList = ({ inventoryData, loading }) => {
     setIsSending(true);
 
     try {
-      // 선택된 리소스 정보 수집
       const selectedItems = inventoryData.filter(item => 
         selectedResources.has(item.id)
       );
 
       console.log('선택된 리소스:', selectedItems);
 
-      // TODO: 여기에 실제 API 호출 추가
-      // const response = await fetch('/api/analyze', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ resources: selectedItems })
-      // });
-
-      // 임시: 2초 후 성공 메시지
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      alert(`${selectedResources.size}개의 리소스가 인벤토리로 전송되었습니다.`);
+      const response = await aegisApi.triggerCollect(true);
       
-      // 선택 초기화
-      setSelectedResources(new Set());
+      console.log('API 응답 전체:', response);
+
+      if (response) {
+        console.log('성공! 결과 페이지로 이동합니다.');
+        
+        navigate('/aegis-results', {
+          state: {
+            services: selectedItems.map(item => item.name || item.id),
+            timestamp: new Date().toISOString(),
+            selectedItems: selectedItems,
+            collectResponse: response
+          }
+        });
+      } else {
+        console.error('응답이 null 또는 undefined:', response);
+        alert('분석 요청에 실패했습니다. (응답 없음)');
+      }
 
     } catch (error) {
       console.error('전송 실패:', error);
-      alert('전송 중 오류가 발생했습니다.');
+      console.error('에러 상세:', error.message);
+      alert('전송 중 오류가 발생했습니다: ' + error.message);
     } finally {
       setIsSending(false);
     }
@@ -94,7 +102,6 @@ const DataTargetList = ({ inventoryData, loading }) => {
     ? inventoryData 
     : inventoryData.filter(r => r.type === filter);
 
-  // 각 타입별 리소스 개수 계산
   const getResourceCount = (type) => {
     return inventoryData.filter(r => r.type === type).length;
   };
@@ -109,7 +116,6 @@ const DataTargetList = ({ inventoryData, loading }) => {
               <p className="text-gray-600">총 {inventoryData.length}개의 리소스 | {selectedResources.size}개 선택됨</p>
             </div>
             
-            {/* 전송 버튼 */}
             {selectedResources.size > 0 && (
               <button
                 onClick={handleSendToAnalyzer}
@@ -170,6 +176,7 @@ const DataTargetList = ({ inventoryData, loading }) => {
                   resource={resource}
                   onClick={() => handleResourceClick(resource)}
                   isSelected={selectedResources.has(resource.id)}
+                  isDetailViewing={selectedResource?.id === resource.id}
                 />
                 <div className="absolute top-2 right-2 z-10">
                   <input
