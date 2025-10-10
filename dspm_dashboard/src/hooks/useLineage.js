@@ -22,7 +22,10 @@ export const useLineage = () => {
       
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        console.warn(`API error: ${response.status} ${response.statusText}`);
+        setPipelines([]);
+        setDomains([]);
+        return [];
       }
       
       const data = await response.json();
@@ -69,9 +72,12 @@ export const useLineage = () => {
       setPipelines(pipelineList);
       return pipelineList;
     } catch (err) {
-      console.error('Failed to fetch pipelines:', err);
-      setError(err.message || '파이프라인 목록을 불러올 수 없습니다');
-      throw err;
+      console.warn('Backend API not available:', err.message);
+      setPipelines([]);
+      setDomains([]);
+      // setError 주석 처리하여 팝업 방지
+      // setError(err.message || '파이프라인 목록을 불러올 수 없습니다');
+      return [];
     } finally {
       setLoadingPipelines(false);
     }
@@ -92,16 +98,20 @@ export const useLineage = () => {
       
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        console.warn(`API error: ${response.status} ${response.statusText}`);
+        setLineageData(null);
+        return null;
       }
       
       const data = await response.json();
       setLineageData(data);
       return data;
     } catch (err) {
-      console.error('Failed to fetch lineage data:', err);
-      setError(err.message || '데이터를 불러올 수 없습니다');
-      throw err;
+      console.warn('Backend API not available:', err.message);
+      setLineageData(null);
+      // setError 주석 처리하여 팝업 방지
+      // setError(err.message || '데이터를 불러올 수 없습니다');
+      return null;
     } finally {
       setLoading(false);
     }
