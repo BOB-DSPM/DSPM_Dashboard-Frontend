@@ -7,6 +7,7 @@ import iso27001Logo from './logo/iso27001.png';
 import iso27017Logo from './logo/iso27017.png';
 import nistairmflogo from './logo/nistairmf.png';
 import euaiactlogo from './logo/euaiact.png';
+import iso27701Logo from './logo/iso27701.png';
 
 const API_BASE = 'http://192.168.0.10:8003';
 const AUDIT_API_BASE = 'http://192.168.0.10:8103';
@@ -32,6 +33,8 @@ const Policies2 = () => {
     'iso-27001': iso27001Logo,
     'ISO-27017': iso27017Logo,
     'iso-27017': iso27017Logo,
+    'iso-27701' : iso27701Logo,
+    'ISO-27701' : iso27701Logo,
     'eu-ai-act':euaiactlogo,
     'EU-AI-Act':euaiactlogo,
     'nist-ai-rmf':nistairmflogo,
