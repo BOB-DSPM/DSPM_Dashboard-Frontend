@@ -7,10 +7,11 @@ import { AlertTriangle, CheckCircle, XCircle, Info, ChevronLeft, ChevronRight, R
 const AegisResults = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { services, timestamp } = location.state || {};
+  const { services, timestamp, selectedItems } = location.state || {};
 
   console.log('AegisResults - location.state:', location.state);
   console.log('AegisResults - services:', services);
+  console.log('AegisResults - selectedItems:', selectedItems);
   console.log('AegisResults - timestamp:', timestamp);
 
   const [items, setItems] = useState([]);
@@ -25,16 +26,50 @@ const AegisResults = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [countdown, setCountdown] = useState(10);
-  const [isAnalyzing, setIsAnalyzing] = useState(true); // 분석 중 여부
+  const [isAnalyzing, setIsAnalyzing] = useState(true);
+  const [allFilteredItems, setAllFilteredItems] = useState([]);
+  const [selectedResource, setSelectedResource] = useState(null);
 
   const pageSize = 20;
+
+  // 선택된 리소스 이름들 가져오기
+  const getSourceNames = () => {
+    if (!services || services.length === 0) return [];
+    console.log('services:', services);
+    console.log('selectedItems:', selectedItems);
+    return services;
+  };
+
+  // 필터링된 아이템들로부터 카테고리 통계 계산
+  const calculateCategoryCounts = (filteredItems) => {
+    const categories = {
+      none: 0,
+      public: 0,
+      sensitive: 0,
+      identifiers: 0,
+    };
+
+    filteredItems.forEach(item => {
+      const category = item.category || 'none';
+      if (categories.hasOwnProperty(category)) {
+        categories[category]++;
+      }
+    });
+
+    return {
+      total: filteredItems.length,
+      categories: categories,
+    };
+  };
 
   // 초기 로드
   useEffect(() => {
     console.log('AegisResults - useEffect 실행');
     loadData();
-    loadStats();
-  }, [currentPage, selectedCategory]);
+    if (!stats) {
+      loadStats();
+    }
+  }, [currentPage, selectedCategory, selectedResource]);
 
   // 자동 새로고침 (10초마다)
   useEffect(() => {
@@ -48,7 +83,7 @@ const AegisResults = () => {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, isAnalyzing, currentPage, selectedCategory]);
+  }, [autoRefresh, isAnalyzing, currentPage, selectedCategory, selectedResource]);
 
   // 카운트다운
   useEffect(() => {
@@ -70,17 +105,123 @@ const AegisResults = () => {
     setError(null);
 
     try {
-      const response = await aegisApi.getFrontList({
-        page: currentPage,
-        size: pageSize,
-        category: selectedCategory || undefined,
-      });
+      const sourceNames = getSourceNames();
+      console.log('Source names:', sourceNames);
 
-      console.log('getFrontList 응답:', response);
+      // 전체 데이터를 가져오기 위한 함수
+      const fetchAllItems = async () => {
+        let allItems = [];
+        let currentFetchPage = 1;
+        const fetchPageSize = 200;
+        let hasMore = true;
 
-      setItems(response.items || []);
-      setTotalItems(response.total || 0);
-      setTotalPages(Math.ceil((response.total || 0) / pageSize));
+        while (hasMore) {
+          console.log(`페이지 ${currentFetchPage} 로딩 중...`);
+          
+          const response = await aegisApi.getFrontList({
+            page: currentFetchPage,
+            size: fetchPageSize,
+          });
+
+          console.log(`페이지 ${currentFetchPage} 응답:`, response);
+
+          if (response.items && response.items.length > 0) {
+            allItems = [...allItems, ...response.items];
+            console.log(`누적 아이템 수: ${allItems.length}`);
+
+            // 더 이상 데이터가 없으면 중단
+            if (response.items.length < fetchPageSize) {
+              hasMore = false;
+              console.log('마지막 페이지 도달');
+            } else {
+              currentFetchPage++;
+            }
+          } else {
+            hasMore = false;
+            console.log('더 이상 데이터 없음');
+          }
+
+          // 무한 루프 방지 (최대 50페이지 = 10,000개)
+          if (currentFetchPage > 50) {
+            console.warn('최대 페이지 수 도달');
+            hasMore = false;
+          }
+        }
+
+        console.log(`총 ${allItems.length}개 아이템 로드 완료`);
+        return allItems;
+      };
+
+      // 전체 아이템 가져오기
+      let filteredItems = await fetchAllItems();
+      console.log('전체 로드된 items 개수:', filteredItems.length);
+
+      // sourceNames가 있으면 필터링 (모든 선택된 리소스 포함)
+      if (sourceNames && sourceNames.length > 0) {
+        console.log('=== 리소스 필터링 시작 ===');
+        console.log('필터링 기준 sourceNames:', sourceNames);
+        
+        filteredItems = filteredItems.filter(item => {
+          if (!item.source) return false;
+          
+          // 선택된 리소스 중 하나라도 매칭되면 true
+          return sourceNames.some(sourceName => {
+            const matches = item.source.includes(sourceName) || 
+                           item.source.includes(`s3/${sourceName}`) ||
+                           item.source.includes(`s3://${sourceName}`);
+            
+            if (matches) {
+              console.log(`  ✓ 매칭: ${item.source} <- ${sourceName}`);
+            }
+            
+            return matches;
+          });
+        });
+      }
+
+      console.log('리소스 필터링된 items 개수:', filteredItems.length);
+
+      // 선택된 리소스가 있으면 추가 필터링
+      if (selectedResource) {
+        console.log('=== 선택된 리소스 필터링 ===');
+        console.log('선택된 리소스:', selectedResource);
+        
+        filteredItems = filteredItems.filter(item => {
+          if (!item.source) return false;
+          
+          return item.source.includes(selectedResource) || 
+                 item.source.includes(`s3/${selectedResource}`) ||
+                 item.source.includes(`s3://${selectedResource}`);
+        });
+        
+        console.log('리소스별 필터링 후 개수:', filteredItems.length);
+      }
+
+      // 전체 필터링된 아이템 저장
+      setAllFilteredItems(filteredItems);
+
+      // 카테고리 통계 재계산 (리소스 필터 변경 시마다)
+      const newCategoryCounts = calculateCategoryCounts(filteredItems);
+      console.log('카테고리 통계 계산:', newCategoryCounts);
+      setCategoryCounts(newCategoryCounts);
+
+      // 선택된 카테고리가 있으면 해당 카테고리만 필터링
+      let displayItems = filteredItems;
+      if (selectedCategory) {
+        console.log('=== 카테고리 필터링 시작 ===');
+        console.log('선택된 카테고리:', selectedCategory);
+        displayItems = filteredItems.filter(item => item.category === selectedCategory);
+        console.log('카테고리 필터링된 items 개수:', displayItems.length);
+      }
+
+      // 페이지네이션 처리
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedItems = displayItems.slice(startIndex, endIndex);
+
+      setItems(paginatedItems);
+      setTotalItems(displayItems.length);
+      setTotalPages(Math.ceil(displayItems.length / pageSize));
     } catch (err) {
       console.error('loadData 에러:', err);
       setError(err.message);
@@ -92,19 +233,13 @@ const AegisResults = () => {
   const loadStats = async () => {
     console.log('loadStats 시작');
     try {
-      const [countsData, statsData] = await Promise.all([
-        aegisApi.getCategoryCounts(),
-        aegisApi.getFrontStats()
-      ]);
+      const statsData = await aegisApi.getFrontStats();
       
-      console.log('getCategoryCounts 응답:', countsData);
       console.log('getFrontStats 응답:', statsData);
       
-      setCategoryCounts(countsData);
       setStats(statsData);
 
       // 분석 완료 여부 판단
-      // total_objects가 0보다 크면 분석이 완료된 것
       if (statsData && statsData.total_objects !== undefined && statsData.total_objects >= 0) {
         setIsAnalyzing(false);
         setAutoRefresh(false);
@@ -147,6 +282,17 @@ const AegisResults = () => {
     setSelectedItem(item);
   };
 
+  const handleCategoryClick = (category) => {
+    setSelectedCategory(category);
+    setCurrentPage(1);
+  };
+
+  const handleResourceFilter = (resource) => {
+    setSelectedResource(resource);
+    setSelectedCategory(null);
+    setCurrentPage(1);
+  };
+
   if (!services) {
     console.log('services가 없음 - 잘못된 접근');
     return (
@@ -179,10 +325,10 @@ const AegisResults = () => {
                 <span className="animate-spin">⏳</span>
                 분석 진행 중... {countdown}초 후 자동 새로고침
               </p>
-            ) : stats && (
+            ) : categoryCounts && (
               <p className="text-sm text-green-600 mt-2 flex items-center gap-2">
                 <CheckCircle className="w-4 h-4" />
-                분석 완료: {stats.total_objects}개 객체 중 {stats.detected_objects}개 검출
+                분석 완료: {categoryCounts.total}개 객체 중 {categoryCounts.categories.public + categoryCounts.categories.sensitive + categoryCounts.categories.identifiers}개 검출
               </p>
             )}
           </div>
@@ -227,6 +373,38 @@ const AegisResults = () => {
         </div>
       </div>
 
+      {/* 리소스 필터 */}
+      {!isAnalyzing && services && services.length > 1 && (
+        <div className="bg-white rounded-lg p-4 shadow-sm border">
+          <label className="text-sm font-medium text-gray-700 mb-2 block">리소스별 필터</label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handleResourceFilter(null)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                !selectedResource 
+                  ? 'bg-primary-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              전체 ({services.length}개)
+            </button>
+            {services.map((service, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleResourceFilter(service)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedResource === service
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {service}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 통계 카드 */}
       {categoryCounts && !isAnalyzing && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -234,7 +412,7 @@ const AegisResults = () => {
             className={`bg-white rounded-lg p-6 shadow-sm border cursor-pointer transition-all ${
               !selectedCategory ? 'ring-2 ring-primary-600' : 'hover:shadow-md'
             }`}
-            onClick={() => setSelectedCategory(null)}
+            onClick={() => handleCategoryClick(null)}
           >
             <div className="text-sm text-gray-600 mb-1">전체</div>
             <div className="text-3xl font-bold text-gray-900">{categoryCounts.total}</div>
@@ -246,7 +424,7 @@ const AegisResults = () => {
               className={`bg-white rounded-lg p-6 shadow-sm border cursor-pointer transition-all ${
                 selectedCategory === category ? 'ring-2 ring-primary-600' : 'hover:shadow-md'
               }`}
-              onClick={() => setSelectedCategory(category)}
+              onClick={() => handleCategoryClick(category)}
             >
               <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
                 {getCategoryIcon(category)}
