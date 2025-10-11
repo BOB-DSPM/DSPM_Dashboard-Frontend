@@ -1,13 +1,13 @@
 // src/services/aegisApi.js
-const AEGIS_API_BASE = 'http://192.168.0.10:8400';  // AEGIS Analyzer
-const COLLECTOR_API_BASE = 'http://192.168.0.10:8000';  // Collector
+const AEGIS_API_BASE = 'http://192.168.0.10:8400';
+const COLLECTOR_API_BASE = 'http://192.168.0.10:8000';
 
 export const aegisApi = {
-  // 데이터 수집 트리거 (AEGIS Analyzer에 요청)
+  // 데이터 수집 트리거
   async triggerCollect(onlyDetected = true) {
     try {
       const requestBody = {
-        collector_api: COLLECTOR_API_BASE,  // Collector API 주소 전달
+        collector_api: COLLECTOR_API_BASE,
         only_detected: onlyDetected
       };
 
@@ -59,6 +59,35 @@ export const aegisApi = {
     }
   },
 
+  // 특정 소스의 결과 조회
+  async getFrontSource(source, params = {}) {
+    try {
+      const searchParams = new URLSearchParams();
+      
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      });
+
+      // source를 인코딩하지 않고 그대로 사용
+      const url = `${AEGIS_API_BASE}/api/result/front-source/${source}${searchParams.toString() ? '?' + searchParams : ''}`;
+      
+      console.log('getFrontSource URL:', url);
+      
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`조회 실패: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('getFrontSource 에러:', error);
+      throw error;
+    }
+  },
+
   // 단일 결과 상세 조회
   async getFrontItem(rid) {
     try {
@@ -103,6 +132,22 @@ export const aegisApi = {
       return await response.json();
     } catch (error) {
       console.error('getFrontStats 에러:', error);
+      throw error;
+    }
+  },
+
+  // 소스 요약 정보 조회
+  async getSourceSummary() {
+    try {
+      const response = await fetch(`${AEGIS_API_BASE}/api/result/source-summary`);
+
+      if (!response.ok) {
+        throw new Error(`소스 요약 조회 실패: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('getSourceSummary 에러:', error);
       throw error;
     }
   },
