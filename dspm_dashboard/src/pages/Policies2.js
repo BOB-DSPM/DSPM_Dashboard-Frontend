@@ -1,6 +1,6 @@
 // src/components/Policies2.js
 import React, { useState, useEffect } from 'react';
-import { Shield, ChevronRight, CheckCircle, XCircle, AlertCircle, Play, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { ClipboardList , ChevronRight, CheckCircle, XCircle, AlertCircle, Play, X, ChevronDown, ChevronUp } from 'lucide-react';
 import gdprLogo from './logo/gdpr.png';
 import ismspLogo from './logo/ismsp.png';
 import iso27001Logo from './logo/iso27001.png';
@@ -8,6 +8,8 @@ import iso27017Logo from './logo/iso27017.png';
 import nistairmflogo from './logo/nistairmf.png';
 import euaiactlogo from './logo/euaiact.png';
 import iso27701Logo from './logo/iso27701.png';
+import iso42001Logo from './logo/iso42001.png';
+
 
 const API_BASE = 'http://192.168.0.10:8003';
 const AUDIT_API_BASE = 'http://192.168.0.10:8103';
@@ -35,10 +37,12 @@ const Policies2 = () => {
     'iso-27017': iso27017Logo,
     'iso-27701' : iso27701Logo,
     'ISO-27701' : iso27701Logo,
-    'eu-ai-act':euaiactlogo,
-    'EU-AI-Act':euaiactlogo,
-    'nist-ai-rmf':nistairmflogo,
-    'NIST-AI-RMF':nistairmflogo,
+    'iso-42001': iso42001Logo,
+    'ISO-42001': iso42001Logo,
+    'eu-ai-act': euaiactlogo,
+    'EU-AI-Act': euaiactlogo,
+    'nist-ai-rmf': nistairmflogo,
+    'NIST-AI-RMF': nistairmflogo,
     default: null,
   };
 
@@ -287,7 +291,7 @@ const Policies2 = () => {
       `}</style>
 
       <div className="flex items-center gap-3">
-        <Shield className="w-8 h-8 text-primary-500" />
+        <ClipboardList  className="w-8 h-8 text-primary-500" />
         <h1 className="text-3xl font-bold text-gray-900">Compliance Policies</h1>
       </div>
 
@@ -326,7 +330,7 @@ const Policies2 = () => {
         <>
           {frameworks.length === 0 && !error ? (
             <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-              <Shield className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <ClipboardList  className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-lg">프레임워크 데이터가 없습니다.</p>
               <p className="text-gray-400 text-sm mt-2">API 연결 상태를 확인하세요.</p>
             </div>
@@ -350,7 +354,7 @@ const Policies2 = () => {
                             e.target.nextSibling.style.display = 'block';
                           }}
                         />
-                        <Shield className="w-6 h-6 text-blue-600" style={{ display: 'none' }} />
+                        <ClipboardList  className="w-6 h-6 text-blue-600" style={{ display: 'none' }} />
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">{fw.framework}</h3>
