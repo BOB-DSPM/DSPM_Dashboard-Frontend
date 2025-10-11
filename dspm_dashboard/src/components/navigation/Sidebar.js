@@ -1,3 +1,4 @@
+// src/components/navigation/Sidebar.js
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -5,7 +6,7 @@ const Sidebar = ({ tabs, activeTab, setActiveTab }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className={`bg-white shadow-sm border-r ${isCollapsed ? 'w-16' : 'w-60'}`}>
+    <div className={`bg-white shadow-sm border-r ${isCollapsed ? 'w-16' : 'w-60'} sticky top-0 h-screen overflow-y-auto`}>
       <div className="flex flex-col py-4">
         {/* 토글 버튼 */}
         <div className={`flex ${isCollapsed ? 'justify-center' : 'justify-end'} mb-2 px-2`}>
