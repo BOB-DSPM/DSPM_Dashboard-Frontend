@@ -9,7 +9,7 @@ import nistairmflogo from './logo/nistairmf.png';
 import euaiactlogo from './logo/euaiact.png';
 import iso27701Logo from './logo/iso27701.png';
 import iso42001Logo from './logo/iso42001.png';
-
+import soc2Logo from './logo/soc2.png';
 
 const API_BASE = 'http://192.168.0.10:8003';
 const AUDIT_API_BASE = 'http://192.168.0.10:8103';
@@ -43,6 +43,8 @@ const Policies2 = () => {
     'EU-AI-Act': euaiactlogo,
     'nist-ai-rmf': nistairmflogo,
     'NIST-AI-RMF': nistairmflogo,
+    'soc2' : soc2Logo,
+    'SOC2' : soc2Logo,
     default: null,
   };
 
@@ -285,7 +287,7 @@ const Policies2 = () => {
   };
 
   return (
-    <div className="space-y-6 relative">
+    <div className="relative">
       <style>{`
         .requirements-table .id-column { display: none; }
       `}</style>

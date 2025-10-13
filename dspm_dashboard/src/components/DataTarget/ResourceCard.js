@@ -1,18 +1,50 @@
+// src/components/DataTarget/ResourceCard.js
 import React from 'react';
-import { Database, HardDrive, FileText, Server } from 'lucide-react';
+
+// 아이콘 import
+import s3Icon from '../../assets/aws-icons/s3.png';
+import ebsIcon from '../../assets/aws-icons/ebs.png';
+import rdsIcon from '../../assets/aws-icons/rds.png';
+import dynamodbIcon from '../../assets/aws-icons/dynamodb.png';
+import efsIcon from '../../assets/aws-icons/efs.png';
+import fsxIcon from '../../assets/aws-icons/fsx.png';
+import elasticacheIcon from '../../assets/aws-icons/elasticache.png';
+import glacierIcon from '../../assets/aws-icons/glacier.png';
+import backupIcon from '../../assets/aws-icons/backup.png';
+import featuregroupIcon from '../../assets/aws-icons/featuregroup.png';
+import redshiftIcon from '../../assets/aws-icons/redshift.png';
+import mskIcon from '../../assets/aws-icons/msk.png';
 
 const ResourceCard = ({ resource, onClick, isSelected, isDetailViewing }) => {
   const getIcon = (type) => {
-    switch (type?.toLowerCase()) {
-      case 's3':
-        return <Database className="w-5 h-5" />;
-      case 'ebs':
-        return <HardDrive className="w-5 h-5" />;
-      case 'rds':
-        return <Server className="w-5 h-5" />;
-      default:
-        return <FileText className="w-5 h-5" />;
+    const iconMap = {
+      's3': s3Icon,
+      'ebs': ebsIcon,
+      'rds': rdsIcon,
+      'rds_snapshot': rdsIcon,
+      'dynamodb': dynamodbIcon,
+      'efs': efsIcon,
+      'fsx': fsxIcon,
+      'elasticache': elasticacheIcon,
+      'glacier': glacierIcon,
+      'backup': backupIcon,
+      'feature_group': featuregroupIcon,
+      'redshift': redshiftIcon,
+      'msk': mskIcon,
+    };
+
+    const iconSrc = iconMap[type?.toLowerCase()];
+    
+    if (iconSrc) {
+      return <img src={iconSrc} alt={type} className="w-12 h-12 object-contain" />;
     }
+    
+    // 기본 아이콘 (매칭 안될 경우)
+    return (
+      <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+      </svg>
+    );
   };
 
   const getTypeColor = (type) => {
@@ -23,6 +55,26 @@ const ResourceCard = ({ resource, onClick, isSelected, isDetailViewing }) => {
         return 'bg-purple-100 text-purple-800 border-purple-300';
       case 'rds':
         return 'bg-green-100 text-green-800 border-green-300';
+      case 'rds_snapshot':
+        return 'bg-teal-100 text-teal-800 border-teal-300';
+      case 'efs':
+        return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'fsx':
+        return 'bg-pink-100 text-pink-800 border-pink-300';
+      case 'dynamodb':
+        return 'bg-indigo-100 text-indigo-800 border-indigo-300';
+      case 'redshift':
+        return 'bg-red-100 text-red-800 border-red-300';
+      case 'elasticache':
+        return 'bg-cyan-100 text-cyan-800 border-cyan-300';
+      case 'glacier':
+        return 'bg-sky-100 text-sky-800 border-sky-300';
+      case 'backup':
+        return 'bg-amber-100 text-amber-800 border-amber-300';
+      case 'feature_group':
+        return 'bg-lime-100 text-lime-800 border-lime-300';
+      case 'msk':
+        return 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-300';
     }
@@ -42,12 +94,12 @@ const ResourceCard = ({ resource, onClick, isSelected, isDetailViewing }) => {
       `}
     >
       <div className="flex items-start justify-between mb-3">
-        <div className={`p-2 rounded-lg ${
+        <div className={`p-2 rounded-lg flex items-center justify-center -ml-1 ${
           isDetailViewing 
-            ? 'bg-blue-200' 
+            ? 'bg-blue-100' 
             : isSelected 
-              ? 'bg-green-200' 
-              : 'bg-gray-100'
+              ? 'bg-green-100' 
+              : 'bg-white'
         }`}>
           {getIcon(resource.type)}
         </div>
