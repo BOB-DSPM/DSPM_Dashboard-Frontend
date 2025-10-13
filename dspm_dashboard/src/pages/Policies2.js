@@ -11,8 +11,8 @@ import iso27701Logo from './logo/iso27701.png';
 import iso42001Logo from './logo/iso42001.png';
 
 
-const API_BASE = 'http://192.168.0.10:8003';
-const AUDIT_API_BASE = 'http://192.168.0.10:8103';
+const API_BASE = 'http://211.44.183.248:8003';
+const AUDIT_API_BASE = 'http://211.44.183.248:8103';
 
 const Policies2 = () => {
   const [frameworks, setFrameworks] = useState([]);
