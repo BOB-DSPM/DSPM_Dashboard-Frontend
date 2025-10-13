@@ -363,14 +363,14 @@ const Policies2 = () => {
                         />
                         <ClipboardList  className="w-6 h-6 text-blue-600" style={{ display: 'none' }} />
                       </div>
-                      <div>
+                      <div className="ml-2">
                         <h3 className="text-lg font-semibold text-gray-900">{fw.framework}</h3>
                         <p className="text-sm text-gray-500">Compliance Framework</p>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                    <span className="text-2xl font-bold text-gray-900">{fw.count}</span>
+                    <span className="text-2xl font-bold text-gray-900 ml-2 ">{fw.count}</span>
                     <span className="text-sm text-gray-500">Requirements</span>
                   </div>
                 </div>
