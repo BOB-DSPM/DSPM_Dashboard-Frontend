@@ -10,6 +10,8 @@ import euaiactlogo from './logo/euaiact.png';
 import iso27701Logo from './logo/iso27701.png';
 import iso42001Logo from './logo/iso42001.png';
 import soc2Logo from './logo/soc2.png';
+import pipaLogo from './logo/pipa.png';
+
 
 const API_BASE = 'http://211.44.183.248:8003';
 const AUDIT_API_BASE = 'http://211.44.183.248:8103';
@@ -45,6 +47,9 @@ const Policies2 = () => {
     'NIST-AI-RMF': nistairmflogo,
     'soc2' : soc2Logo,
     'SOC2' : soc2Logo,
+    'pipa' : pipaLogo,
+    'PIPA' : pipaLogo,   
+    '개인정보보호법' : pipaLogo,  
     default: null,
   };
 
