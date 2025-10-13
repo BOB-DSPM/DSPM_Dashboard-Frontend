@@ -1,31 +1,50 @@
 // src/components/DataTarget/DetailPanel.js
 import React, { useState, useRef, useEffect } from 'react';
-import { Database, HardDrive, Server, Cloud, Archive, Shield, Activity, FileText, Boxes, GripVertical } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
+// AWS 아이콘 import
+import s3Icon from '../../assets/aws-icons/s3.png';
+import ebsIcon from '../../assets/aws-icons/ebs.png';
+import rdsIcon from '../../assets/aws-icons/rds.png';
+import dynamodbIcon from '../../assets/aws-icons/dynamodb.png';
+import efsIcon from '../../assets/aws-icons/efs.png';
+import fsxIcon from '../../assets/aws-icons/fsx.png';
+import elasticacheIcon from '../../assets/aws-icons/elasticache.png';
+import glacierIcon from '../../assets/aws-icons/glacier.png';
+import backupIcon from '../../assets/aws-icons/backup.png';
+import featuregroupIcon from '../../assets/aws-icons/featuregroup.png';
+import mskIcon from '../../assets/aws-icons/msk.png';
+
 const ResourceIcon = ({ type }) => {
-  const iconProps = { size: 24, className: "text-primary-600" };
-  
-  const icons = {
-    s3: <Cloud {...iconProps} />,
-    ebs: <HardDrive {...iconProps} />,
-    efs: <Server {...iconProps} />,
-    fsx: <Server {...iconProps} />,
-    rds: <Database {...iconProps} />,
-    rds_snapshot: <Archive {...iconProps} />,
-    dynamodb: <Database {...iconProps} />,
-    redshift: <Database {...iconProps} />,
-    elasticache: <Activity {...iconProps} />,
-    glacier: <Archive {...iconProps} />,
-    backup: <Shield {...iconProps} />,
-    feature_group: <Boxes {...iconProps} />,
-    glue: <FileText {...iconProps} />,
-    kinesis: <Activity {...iconProps} />,
-    msk: <Activity {...iconProps} />
+  const iconMap = {
+    's3': s3Icon,
+    'ebs': ebsIcon,
+    'rds': rdsIcon,
+    'rds_snapshot': rdsIcon,
+    'dynamodb': dynamodbIcon,
+    'efs': efsIcon,
+    'fsx': fsxIcon,
+    'elasticache': elasticacheIcon,
+    'glacier': glacierIcon,
+    'backup': backupIcon,
+    'feature_group': featuregroupIcon,
+    'msk': mskIcon,
   };
+
+  const iconSrc = iconMap[type?.toLowerCase()];
   
-  return icons[type] || <Database {...iconProps} />;
+  if (iconSrc) {
+    return <img src={iconSrc} alt={type} className="w-10 h-10 object-contain" />;
+  }
+  
+  // 기본 아이콘
+  return (
+    <svg className="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+    </svg>
+  );
 };
 
 const DetailPanel = ({ resource, loading, onClose }) => {
