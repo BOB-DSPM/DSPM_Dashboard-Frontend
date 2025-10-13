@@ -258,9 +258,9 @@ const AegisResults = () => {
   const getCategoryColor = (category) => {
     const colors = {
       'sensitive': 'bg-red-100 text-red-800 border-red-300',
-      'public': 'bg-green-100 text-green-800 border-green-300',
+      'public': 'bg-orange-100 text-orange-800 border-orange-300',  // 주황
       'identifiers': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      'none': 'bg-gray-100 text-gray-800 border-gray-300',
+      'none': 'bg-green-100 text-green-800 border-green-300',
     };
     return colors[category] || colors['none'];
   };
@@ -268,11 +268,13 @@ const AegisResults = () => {
   const getCategoryIcon = (category) => {
     switch (category) {
       case 'sensitive':
-        return <AlertTriangle className="w-4 h-4" />;
+        return <AlertTriangle className="w-4 h-4 text-red-600 " />;
       case 'public':
-        return <CheckCircle className="w-4 h-4" />;
+        return <CheckCircle className="w-4 h-4 text-orange-600" />;
       case 'identifiers':
-        return <Info className="w-4 h-4" />;
+        return <Info className="w-4 h-4 text-yellow-400 " />;
+      case 'none':
+        return <XCircle className="w-4 h-4 text-green-600" />;
       default:
         return <XCircle className="w-4 h-4" />;
     }
