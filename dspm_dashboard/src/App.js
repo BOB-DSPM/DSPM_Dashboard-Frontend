@@ -12,12 +12,12 @@ import Policies2 from './pages/Policies2';
 import Lineage from './pages/Lineage';
 import AwsSetup from './pages/AwsSetup';
 import AegisResults from './pages/AegisResults';
-import { Activity, Database, Bell, Shield, GitBranch, Cloud, Target, BarChart3,ClipboardList } from 'lucide-react';
+import { Activity, Database, Bell, Shield, GitBranch, Cloud, Target, BarChart3,ClipboardList,  FolderSearch       } from 'lucide-react';
 
 const tabs = [
   { id: 'overview', name: 'Overview', icon: Activity },
   { id: 'aws-setup', name: 'AWS Setup', icon: Cloud },
-  { id: 'data-target', name: 'Data Target', icon: Target },
+  { id: 'data-target', name: 'Data Collector', icon: FolderSearch            },
   { id: 'lineage', name: 'Lineage', icon: GitBranch },
   { id: 'policies', name: 'Compliance Status', icon: BarChart3  },
   { id: 'policies2', name: 'Policies', icon: ClipboardList  },
