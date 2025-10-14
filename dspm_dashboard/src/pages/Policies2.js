@@ -1,4 +1,4 @@
-// src/components/Policies2.js
+// src/pages/Policies2.js
 import React, { useState, useEffect } from 'react';
 import { ClipboardList , ChevronRight, CheckCircle, XCircle, AlertCircle, Play, X, ChevronDown, ChevronUp } from 'lucide-react';
 import gdprLogo from './logo/gdpr.png';
@@ -29,6 +29,7 @@ const Policies2 = () => {
   const [auditResults, setAuditResults] = useState({});
   const [streaming, setStreaming] = useState(false);
   const [progress, setProgress] = useState({ total: 0, executed: 0 });
+  const [expandedText, setExpandedText] = useState(null);
 
   const frameworkLogos = {
     GDPR: gdprLogo,
@@ -150,7 +151,6 @@ const Policies2 = () => {
     setProgress({ total: 0, executed: 0 });
 
     try {
-      // 스트리밍 시도
       const res = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/_all?stream=true`, {
         method: 'POST',
         headers: { Accept: 'application/x-ndjson' },
@@ -161,7 +161,6 @@ const Policies2 = () => {
       const ctype = res.headers.get('content-type') || '';
       const isStream = ctype.includes('application/x-ndjson') && !!res.body?.getReader;
 
-      // 스트리밍 불가 → 배치로 폴백
       if (!isStream) {
         const allAuditData = await res.json();
         const newAuditResults = {};
@@ -183,7 +182,6 @@ const Policies2 = () => {
         return;
       }
 
-      // NDJSON 스트리밍 처리
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
@@ -216,7 +214,6 @@ const Policies2 = () => {
             executed += 1;
             setProgress({ total, executed });
 
-            // 해당 요구사항 행 갱신
             setRequirements((prev) =>
               prev.map((r) =>
                 r.id === evt.requirement_id
@@ -226,7 +223,6 @@ const Policies2 = () => {
             );
             setAuditResults((prev) => ({ ...prev, [evt.requirement_id]: evt }));
           } else if (evt.type === 'summary') {
-            // 옵션: 전체 요약 처리 필요 시 이곳에서 핸들링
           }
         }
       }
@@ -295,6 +291,20 @@ const Policies2 = () => {
     <div className="relative">
       <style>{`
         .requirements-table .id-column { display: none; }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .line-clamp-3 {
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
       `}</style>
 
       <div className="flex items-center gap-3">
@@ -351,7 +361,7 @@ const Policies2 = () => {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden">
+                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
                         <img
                           src={getFrameworkLogo(fw.framework)}
                           alt={`${fw.framework} logo`}
@@ -363,14 +373,16 @@ const Policies2 = () => {
                         />
                         <ClipboardList  className="w-6 h-6 text-blue-600" style={{ display: 'none' }} />
                       </div>
-                      <div className="ml-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{fw.framework}</h3>
-                        <p className="text-sm text-gray-500">Compliance Framework</p>
+                      <div className="flex-1 ml-2">
+                        <h3 className="text-lg font-semibold text-gray-900 leading-tight">{fw.framework}</h3>
+                        <p className="text-sm text-gray-500 mt-0.5">Compliance Framework</p>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                    <span className="text-2xl font-bold text-gray-900 ml-2 ">{fw.count}</span>
+                    <div className="flex-shrink-0 w-20">
+                      <span className="text-2xl font-bold text-gray-900 ml-2">{fw.count}</span>
+                    </div>
                     <span className="text-sm text-gray-500">Requirements</span>
                   </div>
                 </div>
@@ -413,10 +425,10 @@ const Policies2 = () => {
                   <th className="id-column px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">항목 코드</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '300px', maxWidth: '400px' }}>항목 코드</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">세부 사항</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">매핑 상태</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">액션</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">매핑 상태</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">액션</th>
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -441,13 +453,27 @@ const Policies2 = () => {
                         )}
                       </td>
                       <td className="id-column px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.item_code || '-'}</td>
+                      <td className="px-6 py-2 text-sm text-gray-900" style={{ minWidth: '300px', maxWidth: '400px' }}>
+                        <span 
+                          className="line-clamp-2 block cursor-pointer hover:text-blue-600 transition-colors" 
+                          onClick={() => setExpandedText({ title: '항목 코드', content: req.item_code })}
+                        >
+                          {req.item_code || '-'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        <span>{req.regulation || req.title || '-'}</span>
+                        <div className="max-w-2xl">
+                          <span 
+                            className="line-clamp-3 block cursor-pointer hover:text-blue-600 transition-colors" 
+                            onClick={() => setExpandedText({ title: '세부 사항', content: req.regulation || req.title })}
+                          >
+                            {req.regulation || req.title || '-'}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">{getMappingStatusBadge(req.mapping_status)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex items-center gap-8">
+                        <div className="flex items-center gap-4">
                           <button
                             onClick={() => fetchMappingDetail(selectedFramework, req.id)}
                             className="text-blue-600 hover:text-blue-800"
@@ -542,12 +568,37 @@ const Policies2 = () => {
         </div>
       )}
 
+      {expandedText && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
+          onClick={() => setExpandedText(null)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[80vh] overflow-auto m-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">{expandedText.title}</h3>
+              <button 
+                onClick={() => setExpandedText(null)} 
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
+              {expandedText.content || '-'}
+            </div>
+          </div>
+        </div>
+      )}
+
       {sidePanelOpen && mappingDetail && (
         <>
           <div className="fixed inset-0 bg-black bg-opacity-30 z-40" onClick={closeSidePanel}></div>
 
-          <div className="fixed right-0 top-0 h-full w-1/2 bg-white shadow-2xl z-50 overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
+          <div className="fixed right-0 top-0 h-screen w-1/2 bg-white shadow-2xl z-50 overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">{mappingDetail.requirement.title}</h2>
                 <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
