@@ -1,50 +1,59 @@
+// useDataTarget.js
 import { useState, useEffect } from 'react';
 
 export const useDataTarget = (activeTab) => {
   const [inventoryData, setInventoryData] = useState([]);
   const [loadingInventory, setLoadingInventory] = useState(false);
   const [error, setError] = useState(null);
+  const [stats, setStats] = useState({});      // ← 카운트
+  const [raw, setRaw] = useState(null);        // ← 원본 저장
 
   useEffect(() => {
-    if (activeTab === 'data-target') {
-      const fetchInventory = async () => {
-        setLoadingInventory(true);
-        setError(null);
-        try {
-          const response = await fetch('http://211.44.183.248:8000/api/all-resources');
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log('Received resources data:', data);
-            
-            const formattedResources = formatResources(data);
-            setInventoryData(formattedResources);
-          } else {
-            console.warn(`API error: ${response.status} ${response.statusText}`);
-            // 에러 표시 대신 빈 배열 사용
-            setInventoryData([]);
-          }
-        } catch (error) {
-          console.warn('Backend API not available:', error.message);
-          // 네트워크 에러는 조용히 처리하고 빈 배열 사용
+    if (activeTab !== 'data-target') return;
+
+    const fetchInventory = async () => {
+      setLoadingInventory(true);
+      setError(null);
+      try {
+        const res = await fetch('http://211.44.183.248:8000/api/all-resources');
+        if (!res.ok) {
+          setError(`API ${res.status} ${res.statusText}`);
           setInventoryData([]);
-          // setError는 주석 처리하여 팝업 방지
-          // setError(error.message);
-        } finally {
-          setLoadingInventory(false);
+          return;
         }
-      };
-      fetchInventory();
-    }
+        const data = await res.json();
+        setRaw(data); // 원본
+
+        // 카테고리별 카운트
+        const counts = Object.fromEntries(
+          Object.entries(data).map(([k, v]) => {
+            if (Array.isArray(v)) return [k, v.length];
+            if (v && typeof v === 'object') return [k, Object.keys(v).length]; // feature_groups 같은 object
+            return [k, 0];
+          })
+        );
+        setStats(counts);
+
+        const formatted = formatResources(data);
+        console.log('[DT] formatted len =', formatted.length, formatted.slice(0, 5));
+        setInventoryData(formatted);
+      } catch (e) {
+        console.warn('Backend API not available:', e.message);
+        setInventoryData([]);
+      } finally {
+        setLoadingInventory(false);
+      }
+    };
+
+    fetchInventory();
   }, [activeTab]);
 
-  return { inventoryData, loadingInventory, error };
+  return { inventoryData, loadingInventory, error, stats, raw };
 };
 
-// 리소스 데이터 포맷 변환 함수
+// 그대로 사용 (아래 2)에서 수정안도 참고)
 const formatResources = (data) => {
   const result = [];
-  
   const typeMap = {
     s3_buckets: { type: 's3', label: 'S3 Bucket', nameKey: 'name' },
     ebs_volumes: { type: 'ebs', label: 'EBS Volume', nameKey: 'volume_id' },
@@ -61,16 +70,15 @@ const formatResources = (data) => {
     kinesis_streams: { type: 'kinesis', label: 'Kinesis Stream', nameKey: 'stream_name' },
     msk_clusters: { type: 'msk', label: 'MSK Cluster', nameKey: 'cluster_name' }
   };
-  
-  Object.entries(data).forEach(([category, items]) => {
+
+  Object.entries(data || {}).forEach(([category, items]) => {
     if (category === 'feature_groups' && typeof items === 'object' && !Array.isArray(items)) {
-      // feature_groups는 객체 형태로 온다
       Object.entries(items).forEach(([name, details]) => {
         result.push({
           id: `feature_group-${name}`,
           type: 'feature_group',
           typeLabel: 'Feature Group',
-          name: name,
+          name,
           details: { name, ...details }
         });
       });
@@ -79,7 +87,7 @@ const formatResources = (data) => {
       if (config) {
         items.forEach(item => {
           result.push({
-            id: `${config.type}-${item[config.nameKey]}`,
+            id: `${config.type}-${item[config.nameKey] || item.name || Math.random().toString(36).slice(2)}`,
             type: config.type,
             typeLabel: config.label,
             name: item[config.nameKey] || item.name || 'Unknown',
@@ -89,6 +97,6 @@ const formatResources = (data) => {
       }
     }
   });
-  
+
   return result;
 };
