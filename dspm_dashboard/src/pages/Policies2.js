@@ -154,7 +154,7 @@ const Policies2 = () => {
       const res = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/_all?stream=true`, {
         method: 'POST',
         headers: { Accept: 'application/x-ndjson' }, // 힌트용
-        credentials: 'include',   // 게이트웨이 세션 쿠키 사용 시
+        credentials: 'omit',   // 게이트웨이 세션 쿠키 사용 시
         cache: 'no-store',        // 중간 캐시 방지
       });
 
@@ -716,3 +716,4 @@ const Policies2 = () => {
 };
 
 export default Policies2;
+
