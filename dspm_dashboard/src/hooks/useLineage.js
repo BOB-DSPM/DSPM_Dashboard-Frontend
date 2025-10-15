@@ -1,7 +1,7 @@
 // src/hooks/useLineage.js
 import { useState, useCallback } from 'react';
 
-const LINEAGE_API = 'http://192.168.0.10:8300';
+const LINEAGE_API = 'http://211.44.183.248:9000/lineage';
 
 export const useLineage = () => {
   const [loading, setLoading] = useState(false);
