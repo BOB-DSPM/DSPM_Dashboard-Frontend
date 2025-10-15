@@ -145,88 +145,93 @@ const Policies2 = () => {
 
   const auditAllFramework = async (frameworkCode) => {
     if (!window.confirm(`${frameworkCode} 전체 항목에 대한 진단을 수행하시겠습니까?`)) return;
-
+  
     setAuditing(true);
     setStreaming(true);
     setProgress({ total: 0, executed: 0 });
-
+  
     try {
-      const res = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/_all?stream=true`, {
+      const url = `${AUDIT_API_BASE}/audit/${frameworkCode}/_all?stream=true`;
+      const res = await fetch(url, {
         method: 'POST',
-        headers: { Accept: 'application/x-ndjson' },
+        // 스트림 의도 표시(업스트림/프록시가 굳이 바꾸지 않아도 프론트는 스트림으로 처리)
+        headers: {
+          Accept: 'application/x-ndjson, text/event-stream, application/json',
+          'Cache-Control': 'no-cache'
+        },
+        cache: 'no-store',
       });
-
+  
       if (!res.ok) throw new Error(`Audit failed: ${res.status}`);
-
-      const ctype = res.headers.get('content-type') || '';
-      const isStream = ctype.includes('application/x-ndjson') && !!res.body?.getReader;
-
-      if (!isStream) {
-        const allAuditData = await res.json();
-        const newAuditResults = {};
-        const updatedRequirements = requirements.map((req) => {
-          const reqResult = allAuditData.results?.find((r) => r.requirement_id === req.id);
-          if (reqResult) {
-            newAuditResults[req.id] = reqResult;
-            return {
-              ...req,
-              mapping_status: reqResult.requirement_status || 'Audited',
-              audit_result: reqResult,
-            };
+  
+      // 🔑 핵심: 내가 stream=true로 보냈고, 브라우저가 ReadableStream을 지원하면 무조건 스트림 처리
+      const canStream = !!res.body?.getReader;
+      if (canStream) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        let executed = 0;
+        let total = 0;
+  
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+  
+          buf += decoder.decode(value, { stream: true });
+  
+          // NDJSON 라인 단위 파싱
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, nl).trim();
+            buf = buf.slice(nl + 1);
+            if (!line) continue;
+  
+            let evt;
+            try { evt = JSON.parse(line); } catch { continue; }
+  
+            if (evt.type === 'meta') {
+              total = evt.total || 0;
+              setProgress({ total, executed });
+            } else if (evt.type === 'requirement') {
+              executed += 1;
+              setProgress({ total, executed });
+  
+              setRequirements(prev =>
+                prev.map(r =>
+                  r.id === evt.requirement_id
+                    ? { ...r, mapping_status: evt.requirement_status, audit_result: evt }
+                    : r
+                )
+              );
+              setAuditResults(prev => ({ ...prev, [evt.requirement_id]: evt }));
+            } else if (evt.type === 'summary') {
+              // 필요 시 요약 처리
+            }
           }
-          return req;
-        });
-        setAuditResults((prev) => ({ ...prev, ...newAuditResults }));
-        setRequirements(updatedRequirements);
+        }
+  
         alert('전체 진단이 완료되었습니다.');
         return;
       }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-      let executed = 0;
-      let total = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buf += decoder.decode(value, { stream: true });
-
-        let nl;
-        while ((nl = buf.indexOf('\n')) >= 0) {
-          const line = buf.slice(0, nl).trim();
-          buf = buf.slice(nl + 1);
-          if (!line) continue;
-
-          let evt;
-          try {
-            evt = JSON.parse(line);
-          } catch {
-            continue;
-          }
-
-          if (evt.type === 'meta') {
-            total = evt.total || 0;
-            setProgress({ total, executed });
-          } else if (evt.type === 'requirement') {
-            executed += 1;
-            setProgress({ total, executed });
-
-            setRequirements((prev) =>
-              prev.map((r) =>
-                r.id === evt.requirement_id
-                  ? { ...r, mapping_status: evt.requirement_status, audit_result: evt }
-                  : r
-              )
-            );
-            setAuditResults((prev) => ({ ...prev, [evt.requirement_id]: evt }));
-          } else if (evt.type === 'summary') {
-          }
+  
+      // 🔁 스트림을 못 쓰는 환경(아주 구형 브라우저 등)에서만 폴백
+      // 업스트림이 한 번에 JSON을 주는 경우에만 도달
+      const allAuditData = await res.json();
+      const newAuditResults = {};
+      const updatedRequirements = requirements.map((req) => {
+        const reqResult = allAuditData.results?.find((r) => r.requirement_id === req.id);
+        if (reqResult) {
+          newAuditResults[req.id] = reqResult;
+          return {
+            ...req,
+            mapping_status: reqResult.requirement_status || 'Audited',
+            audit_result: reqResult,
+          };
         }
-      }
-
+        return req;
+      });
+      setAuditResults(prev => ({ ...prev, ...newAuditResults }));
+      setRequirements(updatedRequirements);
       alert('전체 진단이 완료되었습니다.');
     } catch (err) {
       console.error('전체 진단 실패:', err);
@@ -704,3 +709,4 @@ const Policies2 = () => {
 };
 
 export default Policies2;
+
