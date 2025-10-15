@@ -12,7 +12,6 @@ import iso42001Logo from './logo/iso42001.png';
 import soc2Logo from './logo/soc2.png';
 import pipaLogo from './logo/pipa.png';
 
-
 const API_BASE = 'http://211.44.183.248:9000/compliance';
 const AUDIT_API_BASE = 'http://211.44.183.248:9000/auditor';
 
@@ -143,6 +142,7 @@ const Policies2 = () => {
     }
   };
 
+  // ▼▼▼ 여기부터 전체 진단 스트리밍 수정 ▼▼▼
   const auditAllFramework = async (frameworkCode) => {
     if (!window.confirm(`${frameworkCode} 전체 항목에 대한 진단을 수행하시겠습니까?`)) return;
 
@@ -153,15 +153,18 @@ const Policies2 = () => {
     try {
       const res = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/_all?stream=true`, {
         method: 'POST',
-        headers: { Accept: 'application/x-ndjson' },
+        headers: { Accept: 'application/x-ndjson' }, // 힌트용
+        credentials: 'include',   // 게이트웨이 세션 쿠키 사용 시
+        cache: 'no-store',        // 중간 캐시 방지
       });
 
       if (!res.ok) throw new Error(`Audit failed: ${res.status}`);
 
-      const ctype = res.headers.get('content-type') || '';
-      const isStream = ctype.includes('application/x-ndjson') && !!res.body?.getReader;
+      // 헤더 타입과 무관하게, 브라우저가 ReadableStream을 제공하면 스트리밍 처리
+      const isStream = !!res.body?.getReader;
 
       if (!isStream) {
+        // 스트림 아님 → 전체 JSON 한 번에
         const allAuditData = await res.json();
         const newAuditResults = {};
         const updatedRequirements = requirements.map((req) => {
@@ -182,6 +185,7 @@ const Policies2 = () => {
         return;
       }
 
+      // 스트림 처리(NDJSON)
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
@@ -194,16 +198,18 @@ const Policies2 = () => {
 
         buf += decoder.decode(value, { stream: true });
 
-        let nl;
-        while ((nl = buf.indexOf('\n')) >= 0) {
-          const line = buf.slice(0, nl).trim();
-          buf = buf.slice(nl + 1);
+        // \n 또는 \r\n 모두 분리
+        let idx;
+        while ((idx = buf.search(/\r?\n/)) >= 0) {
+          const line = buf.slice(0, idx).trim();
+          buf = buf.slice(idx + (buf[idx] === '\r' ? 2 : 1));
           if (!line) continue;
 
           let evt;
           try {
             evt = JSON.parse(line);
           } catch {
+            // 잘못된 조각은 무시
             continue;
           }
 
@@ -214,6 +220,7 @@ const Policies2 = () => {
             executed += 1;
             setProgress({ total, executed });
 
+            // 요구사항 목록과 개별 결과 갱신
             setRequirements((prev) =>
               prev.map((r) =>
                 r.id === evt.requirement_id
@@ -222,7 +229,11 @@ const Policies2 = () => {
               )
             );
             setAuditResults((prev) => ({ ...prev, [evt.requirement_id]: evt }));
+          } else if (evt.type === 'done') {
+            // 서버가 done을 보내면 조기 종료 가능(선택)
+            // break;  // 필요 시 활성화
           } else if (evt.type === 'summary') {
+            // 요약 처리 필요 시 여기에
           }
         }
       }
@@ -236,6 +247,7 @@ const Policies2 = () => {
       setAuditing(false);
     }
   };
+  // ▲▲▲ 전체 진단 스트리밍 수정 끝 ▲▲▲
 
   const getMappingStatusBadge = (status) => {
     if (status === 'COMPLIANT' || status === 'Compliant') {
