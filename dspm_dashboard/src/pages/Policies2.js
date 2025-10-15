@@ -12,6 +12,7 @@ import iso42001Logo from './logo/iso42001.png';
 import soc2Logo from './logo/soc2.png';
 import pipaLogo from './logo/pipa.png';
 
+
 const API_BASE = 'http://211.44.183.248:9000/compliance';
 const AUDIT_API_BASE = 'http://211.44.183.248:9000/auditor';
 
@@ -142,72 +143,77 @@ const Policies2 = () => {
     }
   };
 
-  // ▼ 교체본: 스트림 강제 + 이벤트 기반 완료 판정 + 조기 완료 방지
   const auditAllFramework = async (frameworkCode) => {
     if (!window.confirm(`${frameworkCode} 전체 항목에 대한 진단을 수행하시겠습니까?`)) return;
-  
+
     setAuditing(true);
     setStreaming(true);
     setProgress({ total: 0, executed: 0 });
-  
-    // 같은 버튼을 여러 번 눌러 중복 스트림이 열리는 걸 방지
-    let aborted = false;
-    const ac = new AbortController();
-  
+
     try {
       const res = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/_all?stream=true`, {
         method: 'POST',
         headers: { Accept: 'application/x-ndjson' },
-        credentials: 'include',   // 세션/쿠키 사용 시 유지
-        cache: 'no-store',
-        signal: ac.signal,
       });
-  
+
       if (!res.ok) throw new Error(`Audit failed: ${res.status}`);
-  
-      // **중요**: 전체 진단은 반드시 스트림으로만 처리. 아니면 에러로 취급(조기 완료 방지).
-      if (!res.body || !res.body.getReader) {
-        throw new Error('Streaming not supported by this browser/response');
+
+      const ctype = res.headers.get('content-type') || '';
+      const isStream = ctype.includes('application/x-ndjson') && !!res.body?.getReader;
+
+      if (!isStream) {
+        const allAuditData = await res.json();
+        const newAuditResults = {};
+        const updatedRequirements = requirements.map((req) => {
+          const reqResult = allAuditData.results?.find((r) => r.requirement_id === req.id);
+          if (reqResult) {
+            newAuditResults[req.id] = reqResult;
+            return {
+              ...req,
+              mapping_status: reqResult.requirement_status || 'Audited',
+              audit_result: reqResult,
+            };
+          }
+          return req;
+        });
+        setAuditResults((prev) => ({ ...prev, ...newAuditResults }));
+        setRequirements(updatedRequirements);
+        alert('전체 진단이 완료되었습니다.');
+        return;
       }
-  
+
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
       let executed = 0;
       let total = 0;
-      let sawAnyEvent = false;   // 이벤트를 실제로 받았는지
-      let sawDone = false;       // done/summary 수신 여부
-  
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-  
+
         buf += decoder.decode(value, { stream: true });
-  
-        // \r\n 또는 \n 구분
-        let idx;
-        while ((idx = buf.search(/\r?\n/)) >= 0) {
-          const line = buf.slice(0, idx).trim();
-          buf = buf.slice(idx + (buf[idx] === '\r' ? 2 : 1));
+
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, nl).trim();
+          buf = buf.slice(nl + 1);
           if (!line) continue;
-  
+
           let evt;
           try {
             evt = JSON.parse(line);
           } catch {
             continue;
           }
-  
-          sawAnyEvent = true;
-  
+
           if (evt.type === 'meta') {
-            total = evt.total ?? total;
+            total = evt.total || 0;
             setProgress({ total, executed });
           } else if (evt.type === 'requirement') {
             executed += 1;
             setProgress({ total, executed });
-  
-            // 요구사항/결과 실시간 업데이트
+
             setRequirements((prev) =>
               prev.map((r) =>
                 r.id === evt.requirement_id
@@ -216,31 +222,19 @@ const Policies2 = () => {
               )
             );
             setAuditResults((prev) => ({ ...prev, [evt.requirement_id]: evt }));
-          } else if (evt.type === 'done' || evt.type === 'summary') {
-            sawDone = true;
+          } else if (evt.type === 'summary') {
           }
         }
       }
-  
-      // ✅ “진단 완료”는 실제로 이벤트를 받았고(done/summary) 스트림이 끝났을 때만
-      if (sawAnyEvent && (sawDone || (progress.total && progress.total === progress.executed) || (total && executed === total))) {
-        alert('전체 진단이 완료되었습니다.');
-      } else {
-        // 이벤트를 전혀 못 받았는데 스트림이 즉시 종료 → 조기완료로 오인 막기
-        throw new Error('Stream finished without progress (likely CORS/proxy buffering).');
-      }
+
+      alert('전체 진단이 완료되었습니다.');
     } catch (err) {
-      if (!aborted) {
-        console.error('전체 진단 실패:', err);
-        alert('전체 진단에 실패했습니다: ' + (err?.message || err));
-      }
+      console.error('전체 진단 실패:', err);
+      alert('전체 진단에 실패했습니다: ' + err.message);
     } finally {
       setStreaming(false);
       setAuditing(false);
     }
-  
-    // 필요 시 외부에서 중단할 때 사용
-    return () => { aborted = true; ac.abort(); };
   };
 
   const getMappingStatusBadge = (status) => {
@@ -710,5 +704,3 @@ const Policies2 = () => {
 };
 
 export default Policies2;
-
-
