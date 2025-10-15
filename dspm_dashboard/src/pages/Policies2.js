@@ -80,6 +80,7 @@ const Policies2 = () => {
 
   useEffect(() => {
     fetchFrameworks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---- 프레임워크 목록 ----
