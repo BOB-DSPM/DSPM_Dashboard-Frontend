@@ -1,7 +1,7 @@
 // src/hooks/useLineage.js
-import { useState, useCallback } from 'react';
-
-const LINEAGE_API = 'http://211.44.183.248:8300';
+import { useState, useCallback, useEffect } from 'react';
+import { sessionService } from '../services/sessionService';
+import { lineageApi } from '../services/lineageApi';
 
 export const useLineage = () => {
   const [loading, setLoading] = useState(false);
@@ -11,26 +11,35 @@ export const useLineage = () => {
   const [domains, setDomains] = useState([]);
   const [loadingPipelines, setLoadingPipelines] = useState(false);
 
-  // 파이프라인 목록 조회 (Catalog 사용)
+  // 세션 시작 (컴포넌트 마운트 시)
+  useEffect(() => {
+    const initSession = async () => {
+      if (!sessionService.hasSession()) {
+        try {
+          await sessionService.startSession();
+        } catch (error) {
+          console.error('Failed to start session:', error);
+        }
+      }
+    };
+
+    initSession();
+
+    // 컴포넌트 언마운트 시 세션 종료 (선택사항)
+    return () => {
+      // sessionService.endSession();
+    };
+  }, []);
+
+  // 파이프라인 목록 조회
   const loadPipelines = useCallback(async (regions = 'ap-northeast-2') => {
     setLoadingPipelines(true);
     setError(null);
 
     try {
-      const url = `${LINEAGE_API}/sagemaker/catalog?regions=${regions}`;
+      const data = await lineageApi.getOverview(regions, true);
       
-      console.log('Fetching pipelines from:', url);
-      
-      const response = await fetch(url);
-      if (!response.ok) {
-        console.warn(`API error: ${response.status} ${response.statusText}`);
-        setPipelines([]);
-        setDomains([]);
-        return [];
-      }
-      
-      const data = await response.json();
-      console.log('API Response:', data);
+      console.log('Overview data:', data);
       
       // 파이프라인 목록 추출
       const pipelineList = [];
@@ -51,7 +60,7 @@ export const useLineage = () => {
         });
       }
       
-      // 파이프라인에서 실제 사용되는 도메인 ID 추출
+      // 도메인 ID 추출
       const domainIdSet = new Set();
       pipelineList.forEach(pipe => {
         if (pipe.tags && pipe.tags['sagemaker:domain-arn']) {
@@ -62,21 +71,18 @@ export const useLineage = () => {
         }
       });
       
-      // 도메인 목록 생성 (ID만 표시)
       const domainList = Array.from(domainIdSet).map(domainId => ({
         id: domainId,
-        name: domainId,  // 이름 대신 ID 표시
+        name: domainId,
         region: regions,
       }));
       
       setDomains(domainList);
-      
-      console.log('Extracted pipeline list:', pipelineList);
-      console.log('Extracted domain list:', domainList);
       setPipelines(pipelineList);
       return pipelineList;
     } catch (err) {
-      console.warn('Backend API not available:', err.message);
+      console.error('Failed to load pipelines:', err);
+      setError(err.message);
       setPipelines([]);
       setDomains([]);
       return [];
@@ -96,20 +102,12 @@ export const useLineage = () => {
     setError(null);
 
     try {
-      const url = `${LINEAGE_API}/lineage?pipeline=${pipelineName}&includeLatestExec=true&region=${region}`;
-      
-      const response = await fetch(url);
-      if (!response.ok) {
-        console.warn(`API error: ${response.status} ${response.statusText}`);
-        setLineageData(null);
-        return null;
-      }
-      
-      const data = await response.json();
+      const data = await lineageApi.getLineage(pipelineName, region, true);
       setLineageData(data);
       return data;
     } catch (err) {
-      console.warn('Backend API not available:', err.message);
+      console.error('Failed to load lineage:', err);
+      setError(err.message);
       setLineageData(null);
       return null;
     } finally {
