@@ -13,7 +13,6 @@ import Lineage from './pages/Lineage';
 import AwsSetup from './pages/AwsSetup';
 import AegisResults from './pages/AegisResults';
 import { Activity, Database, Bell, Shield, GitBranch, Cloud, Target, BarChart3,ClipboardList,  FolderSearch       } from 'lucide-react';
-import './setupSafeJson'; 
 
 const tabs = [
   { id: 'overview', name: 'Overview', icon: Activity },
