@@ -5,8 +5,8 @@ const Header = ({ onLogout }) => {
   return (
     <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">DSPM Dashboard</h1>
-        <p className="text-sm text-gray-600">Data Security Posture Management</p>
+        <h1 className="text-xl font-bold text-gray-900">SAGE Dashboard</h1>
+        <p className="text-sm text-gray-600">MLOPS's Data Security Posture Management</p>
       </div>
       <button
         onClick={onLogout}

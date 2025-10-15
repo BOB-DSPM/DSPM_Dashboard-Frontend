@@ -19,7 +19,7 @@ const Login = ({ onLogin }) => {
           <div className="w-16 h-16 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
             <Shield className="w-10 h-10 text-primary-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">DSPM Dashboard</h2>
+          <h2 className="text-2xl font-bold text-gray-900">SAGE Dashboard</h2>
           <p className="text-sm text-gray-600 mt-2">Sign in to your account</p>
         </div>
 
