@@ -1,4 +1,4 @@
-// src/components/DataTarget/DataTargetList.js 수정
+// src/components/DataTarget/DataTargetList.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ResourceCard from './ResourceCard';
@@ -11,6 +11,7 @@ const DataTargetList = ({ inventoryData, loading }) => {
   const [selectedResources, setSelectedResources] = useState(new Set());
   const [filter, setFilter] = useState('all');
   const [isSending, setIsSending] = useState(false);
+  const [isCollecting, setIsCollecting] = useState(false);
 
   // 모든 리소스 타입 정의
   const allResourceTypes = [
@@ -54,24 +55,44 @@ const DataTargetList = ({ inventoryData, loading }) => {
     setSelectedResources(newSelected);
   };
 
-  // 전체 선택/해제 기능 추가
+  // 전체 선택/해제 기능
   const handleSelectAll = () => {
     const filteredIds = filteredResources.map(r => r.id);
     const allSelected = filteredIds.every(id => selectedResources.has(id));
     
     if (allSelected) {
-      // 현재 필터의 모든 항목 선택 해제
       const newSelected = new Set(selectedResources);
       filteredIds.forEach(id => newSelected.delete(id));
       setSelectedResources(newSelected);
     } else {
-      // 현재 필터의 모든 항목 선택
       const newSelected = new Set(selectedResources);
       filteredIds.forEach(id => newSelected.add(id));
       setSelectedResources(newSelected);
     }
   };
 
+  // 콜렉터 실행 (파일 저장만)
+  const handleRunCollector = async () => {
+    if (window.confirm('콜렉터를 실행하여 최신 데이터를 수집하시겠습니까? (수 분 소요될 수 있습니다)')) {
+      setIsCollecting(true);
+      
+      try {
+        console.log('콜렉터 실행 시작...');
+        const response = await aegisApi.runCollector();
+        
+        console.log('콜렉터 실행 완료:', response);
+        alert('데이터 수집이 완료되었습니다. 이제 리소스를 선택하여 위협 식별을 시작할 수 있습니다.');
+        
+      } catch (error) {
+        console.error('콜렉터 실행 실패:', error);
+        alert('콜렉터 실행 중 오류가 발생했습니다: ' + error.message);
+      } finally {
+        setIsCollecting(false);
+      }
+    }
+  };
+
+  // 위협 식별 (저장된 결과 조회만)
   const handleSendToAnalyzer = async () => {
     if (selectedResources.size === 0) {
       alert('위협 식별할 저장소를 선택해주세요.');
@@ -87,30 +108,25 @@ const DataTargetList = ({ inventoryData, loading }) => {
 
       console.log('선택된 리소스:', selectedItems);
 
-      const response = await aegisApi.triggerCollect(true);
+      // 저장된 결과 조회
+      const results = await aegisApi.getFrontList();
       
-      console.log('API 응답 전체:', response);
+      console.log('조회된 결과:', results);
 
-      if (response) {
-        console.log('성공! 결과 페이지로 이동합니다.');
-        
-        navigate('/aegis-results', {
-          state: {
-            services: selectedItems.map(item => item.name || item.id),
-            timestamp: new Date().toISOString(),
-            selectedItems: selectedItems,
-            collectResponse: response
-          }
-        });
-      } else {
-        console.error('응답이 null 또는 undefined:', response);
-        alert('분석 요청에 실패했습니다. (응답 없음)');
-      }
+      // 결과 페이지로 이동
+      navigate('/aegis-results', {
+        state: {
+          services: selectedItems.map(item => item.name || item.id),
+          timestamp: new Date().toISOString(),
+          selectedItems: selectedItems,
+          results: results
+        }
+      });
 
     } catch (error) {
-      console.error('전송 실패:', error);
+      console.error('조회 실패:', error);
       console.error('에러 상세:', error.message);
-      alert('전송 중 오류가 발생했습니다: ' + error.message);
+      alert('결과 조회 중 오류가 발생했습니다: ' + error.message);
     } finally {
       setIsSending(false);
     }
@@ -135,10 +151,34 @@ const DataTargetList = ({ inventoryData, loading }) => {
             </div>
             
             <div className="flex items-center gap-2">
+              {/* 콜렉터 실행 버튼 */}
+              <button
+                onClick={handleRunCollector}
+                disabled={isCollecting}
+                className="h-10 px-4 border border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {isCollecting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    수집 중...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    콜렉터 실행
+                  </>
+                )}
+              </button>
+
               {/* 전체 선택/해제 버튼 */}
               <button
                 onClick={handleSelectAll}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                className="h-10 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors whitespace-nowrap"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -146,26 +186,27 @@ const DataTargetList = ({ inventoryData, loading }) => {
                 {filteredResources.length > 0 && filteredResources.every(r => selectedResources.has(r.id)) ? '전체 해제' : '전체 선택'}
               </button>
 
+              {/* 위협 식별 시작 버튼 */}
               {selectedResources.size > 0 && (
                 <button
                   onClick={handleSendToAnalyzer}
                   disabled={isSending}
-                  className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                  className="h-10 px-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors whitespace-nowrap"
                 >
                   {isSending ? (
                     <>
-                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      전송 중...
+                      조회 중...
                     </>
                   ) : (
                     <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
-                      위협 식별 시작 ({selectedResources.size})
+                      위협 식별 결과 조회 ({selectedResources.size})
                     </>
                   )}
                 </button>

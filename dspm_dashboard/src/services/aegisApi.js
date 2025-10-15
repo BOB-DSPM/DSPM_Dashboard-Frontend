@@ -3,7 +3,38 @@ const AEGIS_API_BASE = 'http://211.44.183.248:8400';
 const COLLECTOR_API_BASE = 'http://211.44.183.248:8000';
 
 export const aegisApi = {
-  // 데이터 수집 트리거
+  // 데이터 수집만 트리거 (파일 저장)
+  async runCollector() {
+    try {
+      const requestBody = {
+        collector_api: COLLECTOR_API_BASE,
+        only_detected: true
+      };
+
+      console.log('Sending collector request:', requestBody);
+
+      const response = await fetch(`${AEGIS_API_BASE}/api/collect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`수집 실패: ${response.status} ${errorText}`);
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('runCollector 에러:', error);
+      throw error;
+    }
+  },
+
+  // 기존 triggerCollect
   async triggerCollect(onlyDetected = true) {
     try {
       const requestBody = {
@@ -70,7 +101,6 @@ export const aegisApi = {
         }
       });
 
-      // source를 인코딩하지 않고 그대로 사용
       const url = `${AEGIS_API_BASE}/api/result/front-source/${source}${searchParams.toString() ? '?' + searchParams : ''}`;
       
       console.log('getFrontSource URL:', url);
@@ -170,4 +200,8 @@ export const aegisApi = {
     }
   }
 
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> 6d8c5a2722ab82699ab8e83740e81264fcc2a648
