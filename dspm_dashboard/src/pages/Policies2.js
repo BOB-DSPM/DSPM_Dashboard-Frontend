@@ -1,17 +1,6 @@
 // src/pages/Policies2.js
 import React, { useState, useEffect } from 'react';
-import {
-  ClipboardList,
-  ChevronRight,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Play,
-  X,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
-
+import { ClipboardList , ChevronRight, CheckCircle, XCircle, AlertCircle, Play, X, ChevronDown, ChevronUp } from 'lucide-react';
 import gdprLogo from './logo/gdpr.png';
 import ismspLogo from './logo/ismsp.png';
 import iso27001Logo from './logo/iso27001.png';
@@ -23,25 +12,14 @@ import iso42001Logo from './logo/iso42001.png';
 import soc2Logo from './logo/soc2.png';
 import pipaLogo from './logo/pipa.png';
 
-// Gateway 경로
+
 const API_BASE = 'http://211.44.183.248:9000/compliance';
 const AUDIT_API_BASE = 'http://211.44.183.248:9000/auditor';
-
-// ---- 유틸: 안전 JSON 파서(빈 본문/잘린 본문 방지) ----
-async function safeJson(res) {
-  const text = await res.text();
-  if (!text) return null; // 빈 본문
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null; // 잘린 본문 등
-  }
-}
 
 const Policies2 = () => {
   const [frameworks, setFrameworks] = useState([]);
   const [selectedFramework, setSelectedFramework] = useState(null);
-  const [requirements, setRequirements] = useState([]); // 항상 배열 유지
+  const [requirements, setRequirements] = useState([]);
   const [mappingDetail, setMappingDetail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -60,19 +38,19 @@ const Policies2 = () => {
     'iso-27001': iso27001Logo,
     'ISO-27017': iso27017Logo,
     'iso-27017': iso27017Logo,
-    'iso-27701': iso27701Logo,
-    'ISO-27701': iso27701Logo,
+    'iso-27701' : iso27701Logo,
+    'ISO-27701' : iso27701Logo,
     'iso-42001': iso42001Logo,
     'ISO-42001': iso42001Logo,
     'eu-ai-act': euaiactlogo,
     'EU-AI-Act': euaiactlogo,
     'nist-ai-rmf': nistairmflogo,
     'NIST-AI-RMF': nistairmflogo,
-    soc2: soc2Logo,
-    SOC2: soc2Logo,
-    pipa: pipaLogo,
-    PIPA: pipaLogo,
-    개인정보보호법: pipaLogo,
+    'soc2' : soc2Logo,
+    'SOC2' : soc2Logo,
+    'pipa' : pipaLogo,
+    'PIPA' : pipaLogo,   
+    '개인정보보호법' : pipaLogo,  
     default: null,
   };
 
@@ -80,46 +58,30 @@ const Policies2 = () => {
 
   useEffect(() => {
     fetchFrameworks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- 프레임워크 목록 ----
   const fetchFrameworks = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/compliance/stats`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const raw = await safeJson(res);
-      const data = Array.isArray(raw) ? raw : [];
+      const response = await fetch(`${API_BASE}/compliance/stats`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
       setFrameworks(data);
     } catch (err) {
       console.error('프레임워크 조회 실패:', err);
-      setError(err.message || '프레임워크 조회 실패');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---- 요구사항 목록 ----
   const fetchRequirements = async (frameworkCode) => {
     setLoading(true);
-    setError(null);
     try {
-      const res = await fetch(`${API_BASE}/compliance/${frameworkCode}/requirements`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const raw = await safeJson(res);
-      const rows = Array.isArray(raw) ? raw : [];
-      // 정규화(필수 필드 기본값)
-      const normalized = rows.map((r) => ({
-        id: r?.id,
-        item_code: r?.item_code ?? '',
-        title: r?.title ?? '',
-        regulation: r?.regulation ?? r?.title ?? '',
-        mapping_status: r?.mapping_status ?? '-',
-        audit_result: r?.audit_result ?? null,
-      }));
-      setRequirements(normalized);
+      const response = await fetch(`${API_BASE}/compliance/${frameworkCode}/requirements`);
+      const data = await response.json();
+      setRequirements(data);
       setSelectedFramework(frameworkCode);
       setSidePanelOpen(false);
       setMappingDetail(null);
@@ -127,56 +89,46 @@ const Policies2 = () => {
       setExpandedItems({});
     } catch (err) {
       console.error('요구사항 조회 실패:', err);
-      setError(err.message || '요구사항 조회 실패');
-      setRequirements([]); // 안전
     } finally {
       setLoading(false);
     }
   };
 
-  // ---- 매핑 상세 ----
   const fetchMappingDetail = async (frameworkCode, reqId) => {
     setLoading(true);
-    setError(null);
     try {
-      const res = await fetch(`${API_BASE}/compliance/${frameworkCode}/requirements/${reqId}/mappings`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const raw = await safeJson(res) || {};
-      const safe = {
-        ...raw,
-        requirement: raw?.requirement ?? { id: reqId, item_code: '', title: '' },
-        mappings: Array.isArray(raw?.mappings) ? raw.mappings : [],
-      };
-      setMappingDetail(safe);
+      const response = await fetch(`${API_BASE}/compliance/${frameworkCode}/requirements/${reqId}/mappings`);
+      const data = await response.json();
+      setMappingDetail(data);
       setSidePanelOpen(true);
     } catch (err) {
       console.error('매핑 상세 조회 실패:', err);
-      setError(err.message || '매핑 상세 조회 실패');
-      setMappingDetail(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---- 단일 항목 진단 ----
   const auditRequirement = async (frameworkCode, reqId) => {
     setAuditing(true);
-    setError(null);
     try {
-      const res = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/${reqId}`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await safeJson(res);
-      if (!data) throw new Error('빈 응답 또는 JSON 파싱 실패');
+      const response = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/${reqId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error(`Audit failed: ${response.status}`);
+      const auditData = await response.json();
 
-      setAuditResults((prev) => ({ ...prev, [reqId]: data }));
+      setAuditResults((prev) => ({
+        ...prev,
+        [reqId]: auditData,
+      }));
 
       setRequirements((prev) =>
-        (Array.isArray(prev) ? prev : []).map((req) =>
+        prev.map((req) =>
           req.id === reqId
             ? {
                 ...req,
-                mapping_status: data.requirement_status || req.mapping_status || '-',
-                audit_result: data,
+                mapping_status: auditData.requirement_status || 'Audited',
+                audit_result: auditData,
               }
             : req
         )
@@ -185,57 +137,51 @@ const Policies2 = () => {
       alert('진단이 완료되었습니다.');
     } catch (err) {
       console.error('진단 실패:', err);
-      alert('진단 실패했습니다: ' + (err.message || 'unknown'));
+      alert('진단 실패했습니다: ' + err.message);
     } finally {
       setAuditing(false);
     }
   };
 
-  // ---- 전체 진단(스트림/비스트림 겸용) ----
   const auditAllFramework = async (frameworkCode) => {
     if (!window.confirm(`${frameworkCode} 전체 항목에 대한 진단을 수행하시겠습니까?`)) return;
 
     setAuditing(true);
     setStreaming(true);
     setProgress({ total: 0, executed: 0 });
-    setError(null);
 
     try {
       const res = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/_all?stream=true`, {
         method: 'POST',
         headers: { Accept: 'application/x-ndjson' },
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const ctype = (res.headers.get('content-type') || '').toLowerCase();
-      const canStream = !!res.body?.getReader && ctype.includes('application/x-ndjson');
+      if (!res.ok) throw new Error(`Audit failed: ${res.status}`);
 
-      // 비스트리밍(배치) 대응
-      if (!canStream) {
-        const all = await safeJson(res);
-        if (!all) throw new Error('빈 응답 또는 JSON 파싱 실패');
-        const byReqId = {};
-        for (const r of Array.isArray(all.results) ? all.results : []) {
-          byReqId[r?.requirement_id] = r;
-        }
-        setAuditResults((prev) => ({ ...prev, ...byReqId }));
-        setRequirements((prev) =>
-          (Array.isArray(prev) ? prev : []).map((req) => {
-            const r = byReqId[req.id];
-            return r
-              ? {
-                  ...req,
-                  mapping_status: r.requirement_status || req.mapping_status || '-',
-                  audit_result: r,
-                }
-              : req;
-          })
-        );
+      const ctype = res.headers.get('content-type') || '';
+      const isStream = ctype.includes('application/x-ndjson') && !!res.body?.getReader;
+
+      if (!isStream) {
+        const allAuditData = await res.json();
+        const newAuditResults = {};
+        const updatedRequirements = requirements.map((req) => {
+          const reqResult = allAuditData.results?.find((r) => r.requirement_id === req.id);
+          if (reqResult) {
+            newAuditResults[req.id] = reqResult;
+            return {
+              ...req,
+              mapping_status: reqResult.requirement_status || 'Audited',
+              audit_result: reqResult,
+            };
+          }
+          return req;
+        });
+        setAuditResults((prev) => ({ ...prev, ...newAuditResults }));
+        setRequirements(updatedRequirements);
         alert('전체 진단이 완료되었습니다.');
         return;
       }
 
-      // 스트리밍 NDJSON
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
@@ -267,41 +213,16 @@ const Policies2 = () => {
           } else if (evt.type === 'requirement') {
             executed += 1;
             setProgress({ total, executed });
-            const reqId = evt.requirement_id;
 
-            // UI 갱신
             setRequirements((prev) =>
-              (Array.isArray(prev) ? prev : []).map((r) =>
-                r.id === reqId
-                  ? {
-                      ...r,
-                      mapping_status: evt.requirement_status || r.mapping_status || '-',
-                      audit_result: {
-                        framework: evt.framework,
-                        requirement_id: reqId,
-                        item_code: evt.item_code,
-                        requirement_status: evt.requirement_status,
-                        summary: evt.summary ?? {},
-                        results: Array.isArray(evt.results) ? evt.results : [],
-                      },
-                    }
+              prev.map((r) =>
+                r.id === evt.requirement_id
+                  ? { ...r, mapping_status: evt.requirement_status, audit_result: evt }
                   : r
               )
             );
-
-            setAuditResults((prev) => ({
-              ...prev,
-              [reqId]: {
-                framework: evt.framework,
-                requirement_id: reqId,
-                item_code: evt.item_code,
-                requirement_status: evt.requirement_status,
-                summary: evt.summary ?? {},
-                results: Array.isArray(evt.results) ? evt.results : [],
-              },
-            }));
+            setAuditResults((prev) => ({ ...prev, [evt.requirement_id]: evt }));
           } else if (evt.type === 'summary') {
-            // 필요시 완료 처리
           }
         }
       }
@@ -309,7 +230,7 @@ const Policies2 = () => {
       alert('전체 진단이 완료되었습니다.');
     } catch (err) {
       console.error('전체 진단 실패:', err);
-      alert('전체 진단에 실패했습니다: ' + (err.message || 'unknown'));
+      alert('전체 진단에 실패했습니다: ' + err.message);
     } finally {
       setStreaming(false);
       setAuditing(false);
@@ -353,8 +274,11 @@ const Policies2 = () => {
     return <AlertCircle className="w-4 h-4 text-gray-400" />;
   };
 
-  const toggleExpand = (key) => {
-    setExpandedItems((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleExpand = (mappingCode) => {
+    setExpandedItems((prev) => ({
+      ...prev,
+      [mappingCode]: !prev[mappingCode],
+    }));
   };
 
   const closeSidePanel = () => {
@@ -384,7 +308,7 @@ const Policies2 = () => {
       `}</style>
 
       <div className="flex items-center gap-3">
-        <ClipboardList className="w-8 h-8 text-primary-500" />
+        <ClipboardList  className="w-8 h-8 text-primary-500" />
         <h1 className="text-3xl font-bold text-gray-900">Compliance Policies</h1>
       </div>
 
@@ -415,21 +339,21 @@ const Policies2 = () => {
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">에러: {String(error)}</p>
+          <p className="text-red-800">에러: {error}</p>
         </div>
       )}
 
       {!selectedFramework && !loading && (
         <>
-          {(frameworks?.length ?? 0) === 0 && !error ? (
+          {frameworks.length === 0 && !error ? (
             <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-              <ClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <ClipboardList  className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-lg">프레임워크 데이터가 없습니다.</p>
               <p className="text-gray-400 text-sm mt-2">API 연결 상태를 확인하세요.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {(Array.isArray(frameworks) ? frameworks : []).map((fw) => (
+              {frameworks.map((fw) => (
                 <div
                   key={fw.framework}
                   onClick={() => fetchRequirements(fw.framework)}
@@ -447,7 +371,7 @@ const Policies2 = () => {
                             e.target.nextSibling.style.display = 'block';
                           }}
                         />
-                        <ClipboardList className="w-6 h-6 text-blue-600" style={{ display: 'none' }} />
+                        <ClipboardList  className="w-6 h-6 text-blue-600" style={{ display: 'none' }} />
                       </div>
                       <div className="flex-1 ml-2">
                         <h3 className="text-lg font-semibold text-gray-900 leading-tight">{fw.framework}</h3>
@@ -474,7 +398,7 @@ const Policies2 = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">{selectedFramework} Requirements</h2>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-500">{requirements?.length ?? 0} 항목</span>
+                <span className="text-sm text-gray-500">{requirements.length} 항목</span>
                 <div className="flex items-center gap-3">
                   {streaming && (
                     <span className="text-xs text-gray-500">
@@ -493,30 +417,26 @@ const Policies2 = () => {
               </div>
             </div>
           </div>
-
           <div className="overflow-x-auto">
             <table className="w-full requirements-table">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"></th>
-                  <th className="id-column px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                  <th
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    style={{ minWidth: '300px', maxWidth: '400px' }}
-                  >
-                    항목 코드
+                  <th className="id-column px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ID
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '300px', maxWidth: '400px' }}>항목 코드</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">세부 사항</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">매핑 상태</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">액션</th>
                 </tr>
               </thead>
               <tbody className="bg-white">
-                {(Array.isArray(requirements) ? requirements : []).map((req) => (
+                {requirements.map((req) => (
                   <React.Fragment key={req.id}>
                     <tr className="hover:bg-gray-50 border-b border-gray-200">
                       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {req?.audit_result && (
+                        {req.audit_result && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -534,8 +454,8 @@ const Policies2 = () => {
                       </td>
                       <td className="id-column px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.id}</td>
                       <td className="px-6 py-2 text-sm text-gray-900" style={{ minWidth: '300px', maxWidth: '400px' }}>
-                        <span
-                          className="line-clamp-2 block cursor-pointer hover:text-blue-600 transition-colors"
+                        <span 
+                          className="line-clamp-2 block cursor-pointer hover:text-blue-600 transition-colors" 
                           onClick={() => setExpandedText({ title: '항목 코드', content: req.item_code })}
                         >
                           {req.item_code || '-'}
@@ -543,15 +463,15 @@ const Policies2 = () => {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
                         <div className="max-w-2xl">
-                          <span
-                            className="line-clamp-3 block cursor-pointer hover:text-blue-600 transition-colors"
+                          <span 
+                            className="line-clamp-3 block cursor-pointer hover:text-blue-600 transition-colors" 
                             onClick={() => setExpandedText({ title: '세부 사항', content: req.regulation || req.title })}
                           >
                             {req.regulation || req.title || '-'}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{getMappingStatusBadge(req?.mapping_status ?? '-')}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{getMappingStatusBadge(req.mapping_status)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex items-center gap-4">
                           <button
@@ -575,22 +495,22 @@ const Policies2 = () => {
                       </td>
                     </tr>
 
-                    {expandedItems[`req-${req.id}`] && req?.audit_result && (
+                    {expandedItems[`req-${req.id}`] && req.audit_result && (
                       <tr className="bg-gray-50">
                         <td colSpan="6" className="px-6 py-4">
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
                               <h4 className="text-sm font-semibold text-gray-700">진단 결과 상세</h4>
-                              {req.audit_result?.summary && (
+                              {req.audit_result.summary && (
                                 <div className="flex items-center gap-3 text-xs">
-                                  <span className="text-blue-600">준수: {req.audit_result.summary?.COMPLIANT ?? 0}</span>
-                                  <span className="text-red-600">미준수: {req.audit_result.summary?.NON_COMPLIANT ?? 0}</span>
-                                  <span className="text-gray-500">건너뜀: {req.audit_result.summary?.SKIPPED ?? 0}</span>
+                                  <span className="text-blue-600">준수: {req.audit_result.summary.COMPLIANT || 0}</span>
+                                  <span className="text-red-600">미준수: {req.audit_result.summary.NON_COMPLIANT || 0}</span>
+                                  <span className="text-gray-500">건너뜀: {req.audit_result.summary.SKIPPED || 0}</span>
                                 </div>
                               )}
                             </div>
 
-                            {Array.isArray(req.audit_result?.results) && req.audit_result.results.length > 0 ? (
+                            {req.audit_result.results && req.audit_result.results.length > 0 ? (
                               <div className="space-y-3">
                                 {req.audit_result.results.map((result, idx) => (
                                   <div key={idx} className="bg-white rounded border border-gray-200 overflow-hidden">
@@ -602,7 +522,7 @@ const Policies2 = () => {
                                       </div>
                                     </div>
 
-                                    {Array.isArray(result.evaluations) && result.evaluations.length > 0 && (
+                                    {result.evaluations && result.evaluations.length > 0 && (
                                       <div className="p-3 space-y-2">
                                         {result.evaluations.map((evaluation, evalIdx) => (
                                           <div key={evalIdx} className="text-xs space-y-1">
@@ -649,14 +569,20 @@ const Policies2 = () => {
       )}
 
       {expandedText && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setExpandedText(null)}>
-          <div
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
+          onClick={() => setExpandedText(null)}
+        >
+          <div 
             className="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[80vh] overflow-auto m-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-semibold text-gray-900">{expandedText.title}</h3>
-              <button onClick={() => setExpandedText(null)} className="text-gray-500 hover:text-gray-700 transition-colors">
+              <button 
+                onClick={() => setExpandedText(null)} 
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -674,10 +600,10 @@ const Policies2 = () => {
           <div className="fixed right-0 top-0 h-screen w-1/2 bg-white shadow-2xl z-50 overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">{mappingDetail?.requirement?.title}</h2>
+                <h2 className="text-xl font-semibold text-gray-900">{mappingDetail.requirement.title}</h2>
                 <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
-                  <span>ID: {mappingDetail?.requirement?.id}</span>
-                  <span>코드: {mappingDetail?.requirement?.item_code}</span>
+                  <span>ID: {mappingDetail.requirement.id}</span>
+                  <span>코드: {mappingDetail.requirement.item_code}</span>
                 </div>
               </div>
               <button onClick={closeSidePanel} className="p-2 hover:bg-gray-100 rounded-full">
@@ -686,12 +612,10 @@ const Policies2 = () => {
             </div>
 
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                매핑 정보 ({mappingDetail?.mappings?.length ?? 0}건)
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">매핑 정보 ({mappingDetail.mappings.length}건)</h3>
 
               <div className="space-y-6">
-                {(Array.isArray(mappingDetail?.mappings) ? mappingDetail.mappings : []).map((mapping, idx) => (
+                {mappingDetail.mappings.map((mapping, idx) => (
                   <div key={idx} className="bg-white rounded-lg shadow-sm border p-6">
                     <div className="grid grid-cols-2 gap-6">
                       <div>
