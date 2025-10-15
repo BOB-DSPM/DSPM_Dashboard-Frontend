@@ -12,7 +12,6 @@ import iso42001Logo from './logo/iso42001.png';
 import soc2Logo from './logo/soc2.png';
 import pipaLogo from './logo/pipa.png';
 
-
 const API_BASE = 'http://211.44.183.248:9000/compliance';
 const AUDIT_API_BASE = 'http://211.44.183.248:9000/auditor';
 
@@ -27,9 +26,9 @@ const Policies2 = () => {
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
   const [auditResults, setAuditResults] = useState({});
-  const [streaming, setStreaming] = useState(false);
-  const [progress, setProgress] = useState({ total: 0, executed: 0 });
+  const [progress, setProgress] = useState({ total: 0, executed: 0, status: 'idle' });
   const [expandedText, setExpandedText] = useState(null);
+  const [pollTimer, setPollTimer] = useState(null);
 
   const frameworkLogos = {
     GDPR: gdprLogo,
@@ -49,8 +48,8 @@ const Policies2 = () => {
     'soc2' : soc2Logo,
     'SOC2' : soc2Logo,
     'pipa' : pipaLogo,
-    'PIPA' : pipaLogo,   
-    '개인정보보호법' : pipaLogo,  
+    'PIPA' : pipaLogo,
+    '개인정보보호법' : pipaLogo,
     default: null,
   };
 
@@ -58,6 +57,9 @@ const Policies2 = () => {
 
   useEffect(() => {
     fetchFrameworks();
+    return () => {
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, []);
 
   const fetchFrameworks = async () => {
@@ -143,101 +145,51 @@ const Policies2 = () => {
     }
   };
 
+  // ─────────────────────────────────────────────
+  // 전체 진단: 잡 시작 → 진행 폴링
+  // ─────────────────────────────────────────────
   const auditAllFramework = async (frameworkCode) => {
     if (!window.confirm(`${frameworkCode} 전체 항목에 대한 진단을 수행하시겠습니까?`)) return;
-  
+
     setAuditing(true);
-    setStreaming(true);
-    setProgress({ total: 0, executed: 0 });
-  
+    setProgress({ total: 0, executed: 0, status: 'running' });
+
     try {
-      const url = `${AUDIT_API_BASE}/audit/${frameworkCode}/_all?stream=true`;
-      const res = await fetch(url, {
+      const startRes = await fetch(`${AUDIT_API_BASE}/audit/jobs/start/${frameworkCode}`, {
         method: 'POST',
-        // 스트림 의도 표시(업스트림/프록시가 굳이 바꾸지 않아도 프론트는 스트림으로 처리)
-        headers: {
-          Accept: 'application/x-ndjson, text/event-stream, application/json',
-          'Cache-Control': 'no-cache'
-        },
-        cache: 'no-store',
       });
-  
-      if (!res.ok) throw new Error(`Audit failed: ${res.status}`);
-  
-      // 🔑 핵심: 내가 stream=true로 보냈고, 브라우저가 ReadableStream을 지원하면 무조건 스트림 처리
-      const canStream = !!res.body?.getReader;
-      if (canStream) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = '';
-        let executed = 0;
-        let total = 0;
-  
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-  
-          buf += decoder.decode(value, { stream: true });
-  
-          // NDJSON 라인 단위 파싱
-          let nl;
-          while ((nl = buf.indexOf('\n')) >= 0) {
-            const line = buf.slice(0, nl).trim();
-            buf = buf.slice(nl + 1);
-            if (!line) continue;
-  
-            let evt;
-            try { evt = JSON.parse(line); } catch { continue; }
-  
-            if (evt.type === 'meta') {
-              total = evt.total || 0;
-              setProgress({ total, executed });
-            } else if (evt.type === 'requirement') {
-              executed += 1;
-              setProgress({ total, executed });
-  
-              setRequirements(prev =>
-                prev.map(r =>
-                  r.id === evt.requirement_id
-                    ? { ...r, mapping_status: evt.requirement_status, audit_result: evt }
-                    : r
-                )
-              );
-              setAuditResults(prev => ({ ...prev, [evt.requirement_id]: evt }));
-            } else if (evt.type === 'summary') {
-              // 필요 시 요약 처리
-            }
+      if (!startRes.ok) throw new Error(`Start failed: ${startRes.status}`);
+      const { job_id } = await startRes.json();
+
+      // 폴링 루프
+      const timer = setInterval(async () => {
+        try {
+          const pr = await fetch(`${AUDIT_API_BASE}/audit/jobs/${job_id}/progress`, { cache: 'no-store' });
+          if (!pr.ok) return;
+          const p = await pr.json();
+          setProgress({ total: p.total, executed: p.executed, status: p.status });
+
+          // (옵션) 부분결과가 오면 여기서 각 req 업데이트
+          // if (p.recent?.length) { ... }
+
+          if (p.status === 'done') {
+            clearInterval(timer);
+            setAuditing(false);
+            alert('전체 진단이 완료되었습니다.');
           }
+          if (p.status === 'error') {
+            clearInterval(timer);
+            setAuditing(false);
+            alert('전체 진단 실패');
+          }
+        } catch (e) {
+          console.error('progress poll error', e);
         }
-  
-        alert('전체 진단이 완료되었습니다.');
-        return;
-      }
-  
-      // 🔁 스트림을 못 쓰는 환경(아주 구형 브라우저 등)에서만 폴백
-      // 업스트림이 한 번에 JSON을 주는 경우에만 도달
-      const allAuditData = await res.json();
-      const newAuditResults = {};
-      const updatedRequirements = requirements.map((req) => {
-        const reqResult = allAuditData.results?.find((r) => r.requirement_id === req.id);
-        if (reqResult) {
-          newAuditResults[req.id] = reqResult;
-          return {
-            ...req,
-            mapping_status: reqResult.requirement_status || 'Audited',
-            audit_result: reqResult,
-          };
-        }
-        return req;
-      });
-      setAuditResults(prev => ({ ...prev, ...newAuditResults }));
-      setRequirements(updatedRequirements);
-      alert('전체 진단이 완료되었습니다.');
+      }, 800);
+      setPollTimer(timer);
     } catch (err) {
-      console.error('전체 진단 실패:', err);
-      alert('전체 진단에 실패했습니다: ' + err.message);
-    } finally {
-      setStreaming(false);
+      console.error('전체 진단 시작 실패:', err);
+      alert('전체 진단 시작 실패: ' + err.message);
       setAuditing(false);
     }
   };
@@ -296,24 +248,12 @@ const Policies2 = () => {
     <div className="relative">
       <style>{`
         .requirements-table .id-column { display: none; }
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .line-clamp-3 {
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
       `}</style>
 
       <div className="flex items-center gap-3">
-        <ClipboardList  className="w-8 h-8 text-primary-500" />
+        <ClipboardList className="w-8 h-8 text-primary-500" />
         <h1 className="text-3xl font-bold text-gray-900">Compliance Policies</h1>
       </div>
 
@@ -352,7 +292,7 @@ const Policies2 = () => {
         <>
           {frameworks.length === 0 && !error ? (
             <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-              <ClipboardList  className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <ClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-lg">프레임워크 데이터가 없습니다.</p>
               <p className="text-gray-400 text-sm mt-2">API 연결 상태를 확인하세요.</p>
             </div>
@@ -376,7 +316,7 @@ const Policies2 = () => {
                             e.target.nextSibling.style.display = 'block';
                           }}
                         />
-                        <ClipboardList  className="w-6 h-6 text-blue-600" style={{ display: 'none' }} />
+                        <ClipboardList className="w-6 h-6 text-blue-600" style={{ display: 'none' }} />
                       </div>
                       <div className="flex-1 ml-2">
                         <h3 className="text-lg font-semibold text-gray-900 leading-tight">{fw.framework}</h3>
@@ -405,7 +345,7 @@ const Policies2 = () => {
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-500">{requirements.length} 항목</span>
                 <div className="flex items-center gap-3">
-                  {streaming && (
+                  {progress.status === 'running' && (
                     <span className="text-xs text-gray-500">
                       진행 {progress.executed}/{progress.total}
                     </span>
@@ -426,21 +366,19 @@ const Policies2 = () => {
             <table className="w-full requirements-table">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12"></th>
-                  <th className="id-column px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '300px', maxWidth: '400px' }}>항목 코드</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">세부 사항</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">매핑 상태</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">액션</th>
+                  <th className="px-3 py-3 w-12"></th>
+                  <th className="id-column px-6 py-3">ID</th>
+                  <th className="px-6 py-3" style={{ minWidth: '300px', maxWidth: '400px' }}>항목 코드</th>
+                  <th className="px-6 py-3">세부 사항</th>
+                  <th className="px-6 py-3 w-32">매핑 상태</th>
+                  <th className="px-6 py-3 w-48">액션</th>
                 </tr>
               </thead>
               <tbody className="bg-white">
                 {requirements.map((req) => (
                   <React.Fragment key={req.id}>
                     <tr className="hover:bg-gray-50 border-b border-gray-200">
-                      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-3 py-4">
                         {req.audit_result && (
                           <button
                             onClick={(e) => {
@@ -449,18 +387,14 @@ const Policies2 = () => {
                             }}
                             className="text-gray-400 hover:text-gray-600"
                           >
-                            {expandedItems[`req-${req.id}`] ? (
-                              <ChevronUp className="w-4 h-4" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4" />
-                            )}
+                            {expandedItems[`req-${req.id}`] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </button>
                         )}
                       </td>
-                      <td className="id-column px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.id}</td>
+                      <td className="id-column px-6 py-4">{req.id}</td>
                       <td className="px-6 py-2 text-sm text-gray-900" style={{ minWidth: '300px', maxWidth: '400px' }}>
-                        <span 
-                          className="line-clamp-2 block cursor-pointer hover:text-blue-600 transition-colors" 
+                        <span
+                          className="line-clamp-2 block cursor-pointer hover:text-blue-600"
                           onClick={() => setExpandedText({ title: '항목 코드', content: req.item_code })}
                         >
                           {req.item_code || '-'}
@@ -468,8 +402,8 @@ const Policies2 = () => {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
                         <div className="max-w-2xl">
-                          <span 
-                            className="line-clamp-3 block cursor-pointer hover:text-blue-600 transition-colors" 
+                          <span
+                            className="line-clamp-3 block cursor-pointer hover:text-blue-600"
                             onClick={() => setExpandedText({ title: '세부 사항', content: req.regulation || req.title })}
                           >
                             {req.regulation || req.title || '-'}
@@ -526,7 +460,6 @@ const Policies2 = () => {
                                         <span className="text-xs font-medium">{result.status}</span>
                                       </div>
                                     </div>
-
                                     {result.evaluations && result.evaluations.length > 0 && (
                                       <div className="p-3 space-y-2">
                                         {result.evaluations.map((evaluation, evalIdx) => (
@@ -534,24 +467,18 @@ const Policies2 = () => {
                                             <div className="flex items-start justify-between">
                                               <div className="flex-1">
                                                 <div className="font-medium text-gray-700">{evaluation.service}</div>
-                                                {evaluation.resource_id && (
-                                                  <div className="text-gray-600">리소스: {evaluation.resource_id}</div>
-                                                )}
+                                                {evaluation.resource_id && <div className="text-gray-600">리소스: {evaluation.resource_id}</div>}
                                                 <div className="text-gray-500 mt-1">{evaluation.decision}</div>
                                               </div>
                                               {getStatusIcon(evaluation.status)}
                                             </div>
-
                                             {evaluation.extra?.error && (
-                                              <div className="text-red-600 text-xs mt-1 p-2 bg-red-50 rounded">
-                                                {evaluation.extra.error}
-                                              </div>
+                                              <div className="text-red-600 text-xs mt-1 p-2 bg-red-50 rounded">{evaluation.extra.error}</div>
                                             )}
                                           </div>
                                         ))}
                                       </div>
                                     )}
-
                                     {result.reason && (
                                       <div className="px-4 py-2 bg-yellow-50 text-xs text-yellow-800">{result.reason}</div>
                                     )}
@@ -574,26 +501,15 @@ const Policies2 = () => {
       )}
 
       {expandedText && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
-          onClick={() => setExpandedText(null)}
-        >
-          <div 
-            className="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[80vh] overflow-auto m-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setExpandedText(null)}>
+          <div className="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[80vh] overflow-auto m-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-lg font-semibold text-gray-900">{expandedText.title}</h3>
-              <button 
-                onClick={() => setExpandedText(null)} 
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-              >
+              <button onClick={() => setExpandedText(null)} className="text-gray-500 hover:text-gray-700 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
-              {expandedText.content || '-'}
-            </div>
+            <div className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">{expandedText.content || '-'}</div>
           </div>
         </div>
       )}
@@ -601,7 +517,6 @@ const Policies2 = () => {
       {sidePanelOpen && mappingDetail && (
         <>
           <div className="fixed inset-0 bg-black bg-opacity-30 z-40" onClick={closeSidePanel}></div>
-
           <div className="fixed right-0 top-0 h-screen w-1/2 bg-white shadow-2xl z-50 overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10">
               <div>
@@ -615,10 +530,8 @@ const Policies2 = () => {
                 <X className="w-6 h-6" />
               </button>
             </div>
-
             <div className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">매핑 정보 ({mappingDetail.mappings.length}건)</h3>
-
               <div className="space-y-6">
                 {mappingDetail.mappings.map((mapping, idx) => (
                   <div key={idx} className="bg-white rounded-lg shadow-sm border p-6">
@@ -626,73 +539,35 @@ const Policies2 = () => {
                       <div>
                         <h4 className="text-sm font-medium text-gray-700 mb-3">기본 정보</h4>
                         <dl className="space-y-2">
-                          <div>
-                            <dt className="text-xs text-gray-500">코드</dt>
-                            <dd className="text-sm text-gray-900">{mapping.code}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs text-gray-500">카테고리</dt>
-                            <dd className="text-sm text-gray-900">{mapping.category || '-'}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs text-gray-500">서비스</dt>
-                            <dd className="text-sm text-gray-900">{mapping.service || '-'}</dd>
-                          </div>
+                          <div><dt className="text-xs text-gray-500">코드</dt><dd className="text-sm text-gray-900">{mapping.code}</dd></div>
+                          <div><dt className="text-xs text-gray-500">카테고리</dt><dd className="text-sm text-gray-900">{mapping.category || '-'}</dd></div>
+                          <div><dt className="text-xs text-gray-500">서비스</dt><dd className="text-sm text-gray-900">{mapping.service || '-'}</dd></div>
                         </dl>
                       </div>
-
                       <div>
                         <h4 className="text-sm font-medium text-gray-700 mb-3">점검 방법</h4>
                         <dl className="space-y-2">
-                          <div>
-                            <dt className="text-xs text-gray-500">점검 방식</dt>
-                            <dd className="text-sm text-gray-900">{mapping.check_how || '-'}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs text-gray-500">콘솔 경로</dt>
-                            <dd className="text-sm text-gray-900 break-all">{mapping.console_path || '-'}</dd>
-                          </div>
+                          <div><dt className="text-xs text-gray-500">점검 방식</dt><dd className="text-sm text-gray-900">{mapping.check_how || '-'}</dd></div>
+                          <div><dt className="text-xs text-gray-500">콘솔 경로</dt><dd className="text-sm text-gray-900 break-all">{mapping.console_path || '-'}</dd></div>
                           {mapping.cli_cmd && (
-                            <div>
-                              <dt className="text-xs text-gray-500">CLI 명령어</dt>
-                              <dd className="text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded break-all">{mapping.cli_cmd}</dd>
-                            </div>
+                            <div><dt className="text-xs text-gray-500">CLI 명령어</dt><dd className="text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded break-all">{mapping.cli_cmd}</dd></div>
                           )}
                         </dl>
                       </div>
-
                       <div>
                         <h4 className="text-sm font-medium text-gray-700 mb-3">판단 기준</h4>
                         <dl className="space-y-2">
-                          <div>
-                            <dt className="text-xs text-gray-500">반환 필드</dt>
-                            <dd className="text-sm text-gray-900">{mapping.return_field || '-'}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs text-gray-500">준수 값</dt>
-                            <dd className="text-sm text-green-600">{mapping.compliant_value || '-'}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs text-gray-500">미준수 값</dt>
-                            <dd className="text-sm text-red-600">{mapping.non_compliant_value || '-'}</dd>
-                          </div>
+                          <div><dt className="text-xs text-gray-500">반환 필드</dt><dd className="text-sm text-gray-900">{mapping.return_field || '-'}</dd></div>
+                          <div><dt className="text-xs text-gray-500">준수 값</dt><dd className="text-sm text-green-600">{mapping.compliant_value || '-'}</dd></div>
+                          <div><dt className="text-xs text-gray-500">미준수 값</dt><dd className="text-sm text-red-600">{mapping.non_compliant_value || '-'}</dd></div>
                         </dl>
                       </div>
-
                       <div>
                         <h4 className="text-sm font-medium text-gray-700 mb-3">수정 방법</h4>
                         <dl className="space-y-2">
-                          <div>
-                            <dt className="text-xs text-gray-500">콘솔 수정</dt>
-                            <dd className="text-sm text-gray-900 break-all">{mapping.console_fix || '-'}</dd>
-                          </div>
+                          <div><dt className="text-xs text-gray-500">콘솔 수정</dt><dd className="text-sm text-gray-900 break-all">{mapping.console_fix || '-'}</dd></div>
                           {mapping.cli_fix_cmd && (
-                            <div>
-                              <dt className="text-xs text-gray-500">CLI 수정 명령어</dt>
-                              <dd className="text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded break-all">
-                                {mapping.cli_fix_cmd}
-                              </dd>
-                            </div>
+                            <div><dt className="text-xs text-gray-500">CLI 수정 명령어</dt><dd className="text-sm text-gray-900 font-mono bg-gray-50 p-2 rounded break-all">{mapping.cli_fix_cmd}</dd></div>
                           )}
                         </dl>
                       </div>
@@ -709,4 +584,3 @@ const Policies2 = () => {
 };
 
 export default Policies2;
-
