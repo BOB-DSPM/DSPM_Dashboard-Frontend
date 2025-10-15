@@ -1,6 +1,8 @@
 // src/pages/Policies2.js
 import React, { useState, useEffect } from 'react';
-import { ClipboardList , ChevronRight, CheckCircle, XCircle, AlertCircle, Play, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { ClipboardList, ChevronRight, CheckCircle, XCircle, AlertCircle, Play, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { sessionService } from '../services/sessionService';
+import { complianceApi } from '../services/complianceApi';
 import gdprLogo from './logo/gdpr.png';
 import ismspLogo from './logo/ismsp.png';
 import iso27001Logo from './logo/iso27001.png';
@@ -12,9 +14,7 @@ import iso42001Logo from './logo/iso42001.png';
 import soc2Logo from './logo/soc2.png';
 import pipaLogo from './logo/pipa.png';
 
-
 const API_BASE = 'http://211.44.183.248:8003';
-const AUDIT_API_BASE = 'http://211.44.183.248:8103';
 
 const Policies2 = () => {
   const [frameworks, setFrameworks] = useState([]);
@@ -38,25 +38,36 @@ const Policies2 = () => {
     'iso-27001': iso27001Logo,
     'ISO-27017': iso27017Logo,
     'iso-27017': iso27017Logo,
-    'iso-27701' : iso27701Logo,
-    'ISO-27701' : iso27701Logo,
+    'iso-27701': iso27701Logo,
+    'ISO-27701': iso27701Logo,
     'iso-42001': iso42001Logo,
     'ISO-42001': iso42001Logo,
     'eu-ai-act': euaiactlogo,
     'EU-AI-Act': euaiactlogo,
     'nist-ai-rmf': nistairmflogo,
     'NIST-AI-RMF': nistairmflogo,
-    'soc2' : soc2Logo,
-    'SOC2' : soc2Logo,
-    'pipa' : pipaLogo,
-    'PIPA' : pipaLogo,   
-    '개인정보보호법' : pipaLogo,  
+    'soc2': soc2Logo,
+    'SOC2': soc2Logo,
+    'pipa': pipaLogo,
+    'PIPA': pipaLogo,
+    '개인정보보호법': pipaLogo,
     default: null,
   };
 
   const getFrameworkLogo = (frameworkName) => frameworkLogos[frameworkName] || frameworkLogos.default;
 
   useEffect(() => {
+    const initSession = async () => {
+      if (!sessionService.hasSession()) {
+        try {
+          await sessionService.startSession();
+        } catch (error) {
+          console.error('Failed to start session:', error);
+        }
+      }
+    };
+
+    initSession();
     fetchFrameworks();
   }, []);
 
@@ -111,11 +122,7 @@ const Policies2 = () => {
   const auditRequirement = async (frameworkCode, reqId) => {
     setAuditing(true);
     try {
-      const response = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/${reqId}`, {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error(`Audit failed: ${response.status}`);
-      const auditData = await response.json();
+      const auditData = await complianceApi.auditRequirement(frameworkCode, reqId);
 
       setAuditResults((prev) => ({
         ...prev,
@@ -151,81 +158,29 @@ const Policies2 = () => {
     setProgress({ total: 0, executed: 0 });
 
     try {
-      const res = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/_all?stream=true`, {
-        method: 'POST',
-        headers: { Accept: 'application/x-ndjson' },
-      });
-
-      if (!res.ok) throw new Error(`Audit failed: ${res.status}`);
-
-      const ctype = res.headers.get('content-type') || '';
-      const isStream = ctype.includes('application/x-ndjson') && !!res.body?.getReader;
-
-      if (!isStream) {
-        const allAuditData = await res.json();
-        const newAuditResults = {};
-        const updatedRequirements = requirements.map((req) => {
-          const reqResult = allAuditData.results?.find((r) => r.requirement_id === req.id);
-          if (reqResult) {
-            newAuditResults[req.id] = reqResult;
-            return {
-              ...req,
-              mapping_status: reqResult.requirement_status || 'Audited',
-              audit_result: reqResult,
-            };
-          }
-          return req;
-        });
-        setAuditResults((prev) => ({ ...prev, ...newAuditResults }));
-        setRequirements(updatedRequirements);
-        alert('전체 진단이 완료되었습니다.');
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
       let executed = 0;
       let total = 0;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      await complianceApi.auditAllStreaming(frameworkCode, (evt) => {
+        if (evt.type === 'meta') {
+          total = evt.total || 0;
+          setProgress({ total, executed });
+        } else if (evt.type === 'requirement') {
+          executed += 1;
+          setProgress({ total, executed });
 
-        buf += decoder.decode(value, { stream: true });
-
-        let nl;
-        while ((nl = buf.indexOf('\n')) >= 0) {
-          const line = buf.slice(0, nl).trim();
-          buf = buf.slice(nl + 1);
-          if (!line) continue;
-
-          let evt;
-          try {
-            evt = JSON.parse(line);
-          } catch {
-            continue;
-          }
-
-          if (evt.type === 'meta') {
-            total = evt.total || 0;
-            setProgress({ total, executed });
-          } else if (evt.type === 'requirement') {
-            executed += 1;
-            setProgress({ total, executed });
-
-            setRequirements((prev) =>
-              prev.map((r) =>
-                r.id === evt.requirement_id
-                  ? { ...r, mapping_status: evt.requirement_status, audit_result: evt }
-                  : r
-              )
-            );
-            setAuditResults((prev) => ({ ...prev, [evt.requirement_id]: evt }));
-          } else if (evt.type === 'summary') {
-          }
+          setRequirements((prev) =>
+            prev.map((r) =>
+              r.id === evt.requirement_id
+                ? { ...r, mapping_status: evt.requirement_status, audit_result: evt }
+                : r
+            )
+          );
+          setAuditResults((prev) => ({ ...prev, [evt.requirement_id]: evt }));
+        } else if (evt.type === 'summary') {
+          // 요약 처리 (필요시)
         }
-      }
+      });
 
       alert('전체 진단이 완료되었습니다.');
     } catch (err) {
@@ -308,11 +263,11 @@ const Policies2 = () => {
       `}</style>
 
       <div className="flex items-center gap-3">
-        <ClipboardList  className="w-8 h-8 text-primary-500" />
+        <ClipboardList className="w-8 h-8 text-primary-500" />
         <h1 className="text-3xl font-bold text-gray-900">Compliance Policies</h1>
       </div>
 
-      <div className="flex items-center gap-2 text-sm text-gray-600 py-2 px-2 ">
+      <div className="flex items-center gap-2 text-sm text-gray-600 py-2 px-2">
         <button
           onClick={() => {
             setSelectedFramework(null);
@@ -347,7 +302,7 @@ const Policies2 = () => {
         <>
           {frameworks.length === 0 && !error ? (
             <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-              <ClipboardList  className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <ClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-lg">프레임워크 데이터가 없습니다.</p>
               <p className="text-gray-400 text-sm mt-2">API 연결 상태를 확인하세요.</p>
             </div>
@@ -371,7 +326,7 @@ const Policies2 = () => {
                             e.target.nextSibling.style.display = 'block';
                           }}
                         />
-                        <ClipboardList  className="w-6 h-6 text-blue-600" style={{ display: 'none' }} />
+                        <ClipboardList className="w-6 h-6 text-blue-600" style={{ display: 'none' }} />
                       </div>
                       <div className="flex-1 ml-2">
                         <h3 className="text-lg font-semibold text-gray-900 leading-tight">{fw.framework}</h3>
@@ -704,4 +659,3 @@ const Policies2 = () => {
 };
 
 export default Policies2;
-
