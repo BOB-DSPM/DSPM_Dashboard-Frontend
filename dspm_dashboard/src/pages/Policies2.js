@@ -142,85 +142,72 @@ const Policies2 = () => {
     }
   };
 
-  // ▼▼▼ 여기부터 전체 진단 스트리밍 수정 ▼▼▼
+  // ▼ 교체본: 스트림 강제 + 이벤트 기반 완료 판정 + 조기 완료 방지
   const auditAllFramework = async (frameworkCode) => {
     if (!window.confirm(`${frameworkCode} 전체 항목에 대한 진단을 수행하시겠습니까?`)) return;
-
+  
     setAuditing(true);
     setStreaming(true);
     setProgress({ total: 0, executed: 0 });
-
+  
+    // 같은 버튼을 여러 번 눌러 중복 스트림이 열리는 걸 방지
+    let aborted = false;
+    const ac = new AbortController();
+  
     try {
       const res = await fetch(`${AUDIT_API_BASE}/audit/${frameworkCode}/_all?stream=true`, {
         method: 'POST',
-        headers: { Accept: 'application/x-ndjson' }, // 힌트용
-        credentials: 'omit',   // 게이트웨이 세션 쿠키 사용 시
-        cache: 'no-store',        // 중간 캐시 방지
+        headers: { Accept: 'application/x-ndjson' },
+        credentials: 'include',   // 세션/쿠키 사용 시 유지
+        cache: 'no-store',
+        signal: ac.signal,
       });
-
+  
       if (!res.ok) throw new Error(`Audit failed: ${res.status}`);
-
-      // 헤더 타입과 무관하게, 브라우저가 ReadableStream을 제공하면 스트리밍 처리
-      const isStream = !!res.body?.getReader;
-
-      if (!isStream) {
-        // 스트림 아님 → 전체 JSON 한 번에
-        const allAuditData = await res.json();
-        const newAuditResults = {};
-        const updatedRequirements = requirements.map((req) => {
-          const reqResult = allAuditData.results?.find((r) => r.requirement_id === req.id);
-          if (reqResult) {
-            newAuditResults[req.id] = reqResult;
-            return {
-              ...req,
-              mapping_status: reqResult.requirement_status || 'Audited',
-              audit_result: reqResult,
-            };
-          }
-          return req;
-        });
-        setAuditResults((prev) => ({ ...prev, ...newAuditResults }));
-        setRequirements(updatedRequirements);
-        alert('전체 진단이 완료되었습니다.');
-        return;
+  
+      // **중요**: 전체 진단은 반드시 스트림으로만 처리. 아니면 에러로 취급(조기 완료 방지).
+      if (!res.body || !res.body.getReader) {
+        throw new Error('Streaming not supported by this browser/response');
       }
-
-      // 스트림 처리(NDJSON)
+  
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
       let executed = 0;
       let total = 0;
-
+      let sawAnyEvent = false;   // 이벤트를 실제로 받았는지
+      let sawDone = false;       // done/summary 수신 여부
+  
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
+  
         buf += decoder.decode(value, { stream: true });
-
-        // \n 또는 \r\n 모두 분리
+  
+        // \r\n 또는 \n 구분
         let idx;
         while ((idx = buf.search(/\r?\n/)) >= 0) {
           const line = buf.slice(0, idx).trim();
           buf = buf.slice(idx + (buf[idx] === '\r' ? 2 : 1));
           if (!line) continue;
-
+  
           let evt;
           try {
             evt = JSON.parse(line);
           } catch {
-            // 잘못된 조각은 무시
             continue;
           }
-
+  
+          sawAnyEvent = true;
+  
           if (evt.type === 'meta') {
-            total = evt.total || 0;
+            total = evt.total ?? total;
             setProgress({ total, executed });
           } else if (evt.type === 'requirement') {
             executed += 1;
             setProgress({ total, executed });
-
-            // 요구사항 목록과 개별 결과 갱신
+  
+            // 요구사항/결과 실시간 업데이트
             setRequirements((prev) =>
               prev.map((r) =>
                 r.id === evt.requirement_id
@@ -229,25 +216,32 @@ const Policies2 = () => {
               )
             );
             setAuditResults((prev) => ({ ...prev, [evt.requirement_id]: evt }));
-          } else if (evt.type === 'done') {
-            // 서버가 done을 보내면 조기 종료 가능(선택)
-            // break;  // 필요 시 활성화
-          } else if (evt.type === 'summary') {
-            // 요약 처리 필요 시 여기에
+          } else if (evt.type === 'done' || evt.type === 'summary') {
+            sawDone = true;
           }
         }
       }
-
-      alert('전체 진단이 완료되었습니다.');
+  
+      // ✅ “진단 완료”는 실제로 이벤트를 받았고(done/summary) 스트림이 끝났을 때만
+      if (sawAnyEvent && (sawDone || (progress.total && progress.total === progress.executed) || (total && executed === total))) {
+        alert('전체 진단이 완료되었습니다.');
+      } else {
+        // 이벤트를 전혀 못 받았는데 스트림이 즉시 종료 → 조기완료로 오인 막기
+        throw new Error('Stream finished without progress (likely CORS/proxy buffering).');
+      }
     } catch (err) {
-      console.error('전체 진단 실패:', err);
-      alert('전체 진단에 실패했습니다: ' + err.message);
+      if (!aborted) {
+        console.error('전체 진단 실패:', err);
+        alert('전체 진단에 실패했습니다: ' + (err?.message || err));
+      }
     } finally {
       setStreaming(false);
       setAuditing(false);
     }
+  
+    // 필요 시 외부에서 중단할 때 사용
+    return () => { aborted = true; ac.abort(); };
   };
-  // ▲▲▲ 전체 진단 스트리밍 수정 끝 ▲▲▲
 
   const getMappingStatusBadge = (status) => {
     if (status === 'COMPLIANT' || status === 'Compliant') {
@@ -716,4 +710,5 @@ const Policies2 = () => {
 };
 
 export default Policies2;
+
 
