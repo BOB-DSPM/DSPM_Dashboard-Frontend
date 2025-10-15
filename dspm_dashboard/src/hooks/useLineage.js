@@ -11,7 +11,7 @@ export const useLineage = () => {
   const [domains, setDomains] = useState([]);
   const [loadingPipelines, setLoadingPipelines] = useState(false);
 
-  // 세션 시작 (컴포넌트 마운트 시)
+  // Mock 세션 시작
   useEffect(() => {
     const initSession = async () => {
       if (!sessionService.hasSession()) {
@@ -24,22 +24,17 @@ export const useLineage = () => {
     };
 
     initSession();
-
-    // 컴포넌트 언마운트 시 세션 종료 (선택사항)
-    return () => {
-      // sessionService.endSession();
-    };
   }, []);
 
-  // 파이프라인 목록 조회
+  // 파이프라인 목록 조회 (기존 Catalog API 사용)
   const loadPipelines = useCallback(async (regions = 'ap-northeast-2') => {
     setLoadingPipelines(true);
     setError(null);
 
     try {
-      const data = await lineageApi.getOverview(regions, true);
+      const data = await lineageApi.getCatalog(regions);
       
-      console.log('Overview data:', data);
+      console.log('Catalog data:', data);
       
       // 파이프라인 목록 추출
       const pipelineList = [];
