@@ -1,14 +1,12 @@
 // src/services/complianceApi.js
-import { sessionService } from './sessionService';
-
-const BASE_URL = 'http://211.44.183.248:8600';
+const AUDIT_API_BASE = 'http://211.44.183.248:8103';
 
 export const complianceApi = {
   // 프레임워크 전체 감사 (배치)
   async auditAll(framework) {
-    const response = await fetch(`${BASE_URL}/compliance/audit/${framework}/_all`, {
+    const response = await fetch(`${AUDIT_API_BASE}/audit/${framework}/_all`, {
       method: 'POST',
-      headers: sessionService.getSessionHeaders(),
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -20,9 +18,12 @@ export const complianceApi = {
 
   // 프레임워크 전체 감사 (스트리밍)
   async auditAllStreaming(framework, onProgress) {
-    const response = await fetch(`${BASE_URL}/compliance/audit/${framework}/_all?stream=true`, {
+    const response = await fetch(`${AUDIT_API_BASE}/audit/${framework}/_all?stream=true`, {
       method: 'POST',
-      headers: sessionService.getSessionHeaders(),
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/x-ndjson'
+      },
     });
 
     if (!response.ok) {
@@ -68,9 +69,9 @@ export const complianceApi = {
 
   // 특정 요구사항 감사
   async auditRequirement(framework, requirementId) {
-    const response = await fetch(`${BASE_URL}/compliance/audit/${framework}/${requirementId}`, {
+    const response = await fetch(`${AUDIT_API_BASE}/audit/${framework}/${requirementId}`, {
       method: 'POST',
-      headers: sessionService.getSessionHeaders(),
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
