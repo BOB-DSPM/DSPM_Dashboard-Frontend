@@ -704,3 +704,4 @@ const Policies2 = () => {
 };
 
 export default Policies2;
+
