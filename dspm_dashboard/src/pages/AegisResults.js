@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { aegisApi } from '../services/aegisApi';
-import { AlertTriangle, CheckCircle, XCircle, Info, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, Info, ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react';
 
 const AegisResults = () => {
   const location = useLocation();
@@ -29,6 +29,7 @@ const AegisResults = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [allFilteredItems, setAllFilteredItems] = useState([]);
   const [selectedResource, setSelectedResource] = useState(null);
+  const [expandedEntityModal, setExpandedEntityModal] = useState(null);
 
   const pageSize = 20;
 
@@ -258,7 +259,7 @@ const AegisResults = () => {
   const getCategoryColor = (category) => {
     const colors = {
       'sensitive': 'bg-red-100 text-red-800 border-red-300',
-      'public': 'bg-orange-100 text-orange-800 border-orange-300',  // 주황
+      'public': 'bg-orange-100 text-orange-800 border-orange-300',
       'identifiers': 'bg-yellow-100 text-yellow-800 border-yellow-300',
       'none': 'bg-green-100 text-green-800 border-green-300',
     };
@@ -578,13 +579,13 @@ const AegisResults = () => {
       {selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto m-4">
-            <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
+            <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between z-10">
               <h3 className="text-xl font-semibold">{selectedItem.file}</h3>
               <button
                 onClick={() => setSelectedItem(null)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                className="text-gray-500 hover:text-gray-700"
               >
-                ✕
+                <X className="w-6 h-6" />
               </button>
             </div>
 
@@ -644,19 +645,31 @@ const AegisResults = () => {
                           <span className="text-sm text-gray-600">{entityData.count}개</span>
                         </div>
                         {entityData.values && entityData.values.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {entityData.values.slice(0, 5).map((value, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs"
-                              >
-                                {value}
-                              </span>
-                            ))}
+                          <div>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {entityData.values.slice(0, 5).map((value, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs"
+                                >
+                                  {value}
+                                </span>
+                              ))}
+                            </div>
                             {entityData.values.length > 5 && (
-                              <span className="text-xs text-gray-500">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedEntityModal({ 
+                                    type: entityType, 
+                                    values: entityData.values,
+                                    count: entityData.count 
+                                  });
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-800 mt-2 cursor-pointer font-medium"
+                              >
                                 +{entityData.values.length - 5}개 더
-                              </span>
+                              </button>
                             )}
                           </div>
                         )}
@@ -686,6 +699,42 @@ const AegisResults = () => {
                   </dl>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 엔티티 전체 보기 모달 */}
+      {expandedEntityModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]" 
+          onClick={() => setExpandedEntityModal(null)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-auto m-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{expandedEntityModal.type}</h3>
+                <p className="text-sm text-gray-600 mt-1">총 {expandedEntityModal.count}개</p>
+              </div>
+              <button 
+                onClick={() => setExpandedEntityModal(null)} 
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+                </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {expandedEntityModal.values.map((value, idx) => (
+                <span
+                  key={idx}
+                  className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded text-sm font-mono"
+                >
+                  {value}
+                </span>
+              ))}
             </div>
           </div>
         </div>
