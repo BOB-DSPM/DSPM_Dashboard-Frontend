@@ -1,6 +1,6 @@
 // src/services/aegisApi.js
-const AEGIS_API_BASE = 'http://211.44.183.248:8400';
-const COLLECTOR_API_BASE = 'http://211.44.183.248:8000';
+const AEGIS_API_BASE = process.env.REACT_APP_AEGIS_URL;
+const COLLECTOR_API_BASE = process.env.REACT_APP_COLLECTOR_URL;
 
 export const aegisApi = {
   // 데이터 수집만 트리거 (파일 저장)
@@ -199,5 +199,4 @@ export const aegisApi = {
       throw error;
     }
   }
-
 };

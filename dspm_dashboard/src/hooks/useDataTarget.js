@@ -9,15 +9,17 @@ export const useDataTarget = (activeTab) => {
   const [raw, setRaw] = useState(null);        // ← 원본 저장
 
   useEffect(() => {
+
     if (activeTab !== 'data-target') return;
 
     const fetchInventory = async () => {
       setLoadingInventory(true);
       setError(null);
       try {
-        const res = await fetch('http://211.44.183.248:8000/api/all-resources');
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/all-resources`);
         if (!res.ok) {
           setError(`API ${res.status} ${res.statusText}`);
+
           setInventoryData([]);
           return;
         }
