@@ -1,6 +1,5 @@
 // src/services/lineageApi.js
-const LINEAGE_API_BASE = 'http://211.44.183.248:8300';
-
+const LINEAGE_API_BASE = process.env.REACT_APP_LINEAGE_URL;
 export const lineageApi = {
   // SageMaker Catalog (기존 API)
   async getCatalog(regions = 'ap-northeast-2') {

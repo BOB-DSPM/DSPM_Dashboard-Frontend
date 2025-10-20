@@ -1,5 +1,5 @@
 // src/services/complianceApi.js
-const AUDIT_API_BASE = 'http://211.44.183.248:8103';
+const AUDIT_API_BASE = process.env.REACT_APP_AUDIT_URL;
 
 export const complianceApi = {
   // 프레임워크 전체 감사 (배치)

@@ -14,8 +14,7 @@ import iso42001Logo from './logo/iso42001.png';
 import soc2Logo from './logo/soc2.png';
 import pipaLogo from './logo/pipa.png';
 
-const API_BASE = 'http://211.44.183.248:8003';
-
+const API_BASE = process.env.REACT_APP_POLICIES_URL;
 const Policies2 = () => {
   const [frameworks, setFrameworks] = useState([]);
   const [selectedFramework, setSelectedFramework] = useState(null);
