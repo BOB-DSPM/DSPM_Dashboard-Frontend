@@ -1,13 +1,17 @@
 // src/services/aegisApi.js
 const AEGIS_API_BASE = process.env.REACT_APP_AEGIS_URL;
 const COLLECTOR_API_BASE = process.env.REACT_APP_COLLECTOR_URL;
+const abs = (p) => {
+  // 이미 절대면 그대로, 아니면 현재 오리진 기준으로 절대화
+  try { new URL(p); return p; } catch (_) { return `${window.location.origin}${p}`; }
+};
 
 export const aegisApi = {
   // 데이터 수집만 트리거 (파일 저장)
   async runCollector() {
     try {
       const requestBody = {
-        collector_api: COLLECTOR_API_BASE,
+        collector_api: abs(COLLECTOR_API_BASE),
         only_detected: true
       };
 
@@ -38,7 +42,7 @@ export const aegisApi = {
   async triggerCollect(onlyDetected = true) {
     try {
       const requestBody = {
-        collector_api: COLLECTOR_API_BASE,
+        collector_api: abs(COLLECTOR_API_BASE),
         only_detected: onlyDetected
       };
 

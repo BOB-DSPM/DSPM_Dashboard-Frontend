@@ -16,7 +16,7 @@ export const useDataTarget = (activeTab) => {
       setLoadingInventory(true);
       setError(null);
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/all-resources`);
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/all-resources`);
         if (!res.ok) {
           setError(`API ${res.status} ${res.statusText}`);
 

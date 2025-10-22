@@ -4,7 +4,7 @@ const AUDIT_API_BASE = process.env.REACT_APP_AUDIT_URL;
 export const complianceApi = {
   // 프레임워크 전체 감사 (배치)
   async auditAll(framework) {
-    const response = await fetch(`${AUDIT_API_BASE}/audit/${framework}/_all`, {
+    const response = await fetch(`${AUDIT_API_BASE}/${framework}/_all`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -18,7 +18,7 @@ export const complianceApi = {
 
   // 프레임워크 전체 감사 (스트리밍)
   async auditAllStreaming(framework, onProgress) {
-    const response = await fetch(`${AUDIT_API_BASE}/audit/${framework}/_all?stream=true`, {
+    const response = await fetch(`${AUDIT_API_BASE}/${framework}/_all?stream=true`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -69,7 +69,7 @@ export const complianceApi = {
 
   // 특정 요구사항 감사
   async auditRequirement(framework, requirementId) {
-    const response = await fetch(`${AUDIT_API_BASE}/audit/${framework}/${requirementId}`, {
+    const response = await fetch(`${AUDIT_API_BASE}/${framework}/${requirementId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
